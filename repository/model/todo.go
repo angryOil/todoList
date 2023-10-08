@@ -69,3 +69,15 @@ func ToDomainDetailList(list []TodoDetail) []domain.Todo {
 	}
 	return result
 }
+
+func ToDetailModel(dt domain.Todo) TodoDetail {
+	return TodoDetail{
+		Id:            dt.Id,
+		Title:         dt.Title,
+		Content:       dt.Content,
+		OrderNum:      dt.OrderNum,
+		IsDeleted:     dt.IsDeleted,
+		CreatedAt:     dt.CreatedAt,
+		LastUpdatedAt: dt.LastUpdatedAt,
+	}
+}

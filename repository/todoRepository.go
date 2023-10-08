@@ -19,26 +19,32 @@ type TodoRepository struct {
 	db *bun.DB
 }
 
-func (r TodoRepository) Create(todo domain.Todo) error {
+func (r TodoRepository) Create(ctx context.Context, todo domain.Todo) error {
+	tdModel := model.ToDetailModel(todo)
+	_, err := r.db.NewInsert().Model(&tdModel).Exec(ctx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
-func (r TodoRepository) Save(
-	todo domain.Todo, saveFunc func(todo2 domain.Todo) error,
-) error {
-	//err, _, rollback, commit := r.tx.begin()
-	//if err != nil {
-	//	return err
-	//}
-	// model := r.db.select(&todo)
-	// todoDomain := model.ToDomain
-	// err := saveFunc(todoDomain)
 
-	//if err := commit(); err != nil {
-	//	fmt.Println("fail to update because of you")
-	//	rollback()
-	//	return err
-	//}
-	return nil
+func (r TodoRepository) Delete(ctx context.Context, id int) error {
+	_, err := r.db.NewDelete().Model(&model.Todo{}).Where("id = ?", id).Exec(ctx)
+	return err
+}
+
+// 사실상 업데이트입니다.
+// 있다면 update 있다면 save 입니다 (upsert)
+
+func (r TodoRepository) Save(ctx context.Context, td domain.Todo, saveFunc func(domain.Todo) error) error {
+	err := saveFunc(td)
+	if err != nil {
+		return err
+	}
+	tdModel := model.ToDetailModel(td)
+	_, err = r.db.NewInsert().Model(&tdModel).
+		On("CONFLICT (id) DO UPDATE").Exec(ctx)
+	return err
 }
 
 func (r TodoRepository) GetDetail(ctx context.Context, id int) ([]domain.Todo, error) {
