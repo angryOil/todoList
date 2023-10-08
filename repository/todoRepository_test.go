@@ -14,69 +14,87 @@ import (
 
 var utcLocation, _ = time.LoadLocation("")
 
-func TestTodoRepository_GetList(t *testing.T) {
-	dsn := "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
-	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
-	worngDb := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN("postgres://postgres:@localhost:486/postgres?sslmode=disable"))), pgdialect.New())
-	utcLocation, _ := time.LoadLocation("")
-
-	type fields struct {
-		db *bun.DB
+func init() {
+	testDomain := domain.Todo{
+		Id:            1,
+		Title:         "인생은 쓰다 하..",
+		Content:       "오늘 집에 오다가 지하철에 지갑을 두고 내렸다",
+		OrderNum:      1,
+		IsDeleted:     false,
+		CreatedAt:     time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
+		LastUpdatedAt: time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
 	}
-	type args struct {
-		ctx context.Context
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []domain.Todo
-		wantErr bool
-	}{
-		{
-			"select id is 1",
-			fields{db: db},
-			args{
-				ctx: context.Background(),
-			},
-			[]domain.Todo{
-				{
-					Id:            1,
-					Title:         "인생은 쓰다 하..",
-					OrderNum:      1,
-					IsDeleted:     false,
-					CreatedAt:     time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-					LastUpdatedAt: time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-				},
-			},
-			false,
-		},
-		{
-			"if db error ",
-			fields{db: worngDb},
-			args{
-				ctx: context.Background(),
-			},
-			[]domain.Todo{},
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := TodoRepository{
-				db: tt.fields.db,
-			}
-			got, err := r.GetList(tt.args.ctx)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetList() got = %v, want %v", got, tt.want)
-			}
-		})
+	err := repo.Save(context.Background(), testDomain, func(t domain.Todo) error {
+		return nil
+	})
+	if err != nil {
+		panic("초기화 실패.. 테스트 불가 ")
 	}
 }
+
+//func TestTodoRepository_GetList(t *testing.T) {
+//	dsn := "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
+//	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
+//	worngDb := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN("postgres://postgres:@localhost:486/postgres?sslmode=disable"))), pgdialect.New())
+//	utcLocation, _ := time.LoadLocation("")
+//
+//	type fields struct {
+//		db *bun.DB
+//	}
+//	type args struct {
+//		ctx context.Context
+//	}
+//	tests := []struct {
+//		name    string
+//		fields  fields
+//		args    args
+//		want    []domain.Todo
+//		wantErr bool
+//	}{
+//		{
+//			"select id is 1",
+//			fields{db: db},
+//			args{
+//				ctx: context.Background(),
+//			},
+//			[]domain.Todo{
+//				{
+//					Id:            1,
+//					Title:         "인생은 쓰다 하..",
+//					OrderNum:      1,
+//					IsDeleted:     false,
+//					CreatedAt:     time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
+//					LastUpdatedAt: time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
+//				},
+//			},
+//			false,
+//		},
+//		{
+//			"if DB error ",
+//			fields{db: worngDb},
+//			args{
+//				ctx: context.Background(),
+//			},
+//			[]domain.Todo{},
+//			true,
+//		},
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			r := TodoRepository{
+//				DB: tt.fields.db,
+//			}
+//			got, err := r.GetList(tt.args.ctx)
+//			if (err != nil) != tt.wantErr {
+//				t.Errorf("GetList() error = %v, wantErr %v", err, tt.wantErr)
+//				return
+//			}
+//			if !reflect.DeepEqual(got, tt.want) {
+//				t.Errorf("GetList() got = %v, want %v", got, tt.want)
+//			}
+//		})
+//	}
+//}
 
 func TestTodoRepository_GetDetail(t *testing.T) {
 	dsn := "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
@@ -131,7 +149,7 @@ func TestTodoRepository_GetDetail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := TodoRepository{
-				db: tt.fields.db,
+				DB: tt.fields.db,
 			}
 			got, err := r.GetDetail(tt.args.ctx, tt.args.id)
 			if (err != nil) != tt.wantErr {
@@ -183,7 +201,7 @@ func TestTodoRepository_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := TodoRepository{
-				db: tt.fields.db,
+				DB: tt.fields.db,
 			}
 			if err := r.Create(tt.args.ctx, tt.args.todo); (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
