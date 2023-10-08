@@ -32,6 +32,8 @@ func init() {
 	}
 }
 
+// assertion 으로 테스트
+
 //func TestTodoRepository_GetList(t *testing.T) {
 //	dsn := "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
 //	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
