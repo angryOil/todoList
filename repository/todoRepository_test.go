@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 	"todoList/domain"
+	"todoList/repository/infla"
 )
 
 var utcLocation, _ = time.LoadLocation("")
@@ -41,7 +42,7 @@ func init() {
 //	utcLocation, _ := time.LoadLocation("")
 //
 //	type fields struct {
-//		db *bun.DB
+//		db *bun.db
 //	}
 //	type args struct {
 //		ctx context.Context
@@ -72,7 +73,7 @@ func init() {
 //			false,
 //		},
 //		{
-//			"if DB error ",
+//			"if db error ",
 //			fields{db: worngDb},
 //			args{
 //				ctx: context.Background(),
@@ -84,7 +85,7 @@ func init() {
 //	for _, tt := range tests {
 //		t.Run(tt.name, func(t *testing.T) {
 //			r := TodoRepository{
-//				DB: tt.fields.db,
+//				db: tt.fields.db,
 //			}
 //			got, err := r.GetList(tt.args.ctx)
 //			if (err != nil) != tt.wantErr {
@@ -99,10 +100,6 @@ func init() {
 //}
 
 func TestTodoRepository_GetDetail(t *testing.T) {
-	dsn := "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
-	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
-	wrongDb := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN("postgres://postgres:@localhost:486/postgres?sslmode=disable"))), pgdialect.New())
-
 	type fields struct {
 		db *bun.DB
 	}
@@ -119,7 +116,7 @@ func TestTodoRepository_GetDetail(t *testing.T) {
 	}{
 		{
 			"select id is 1",
-			fields{db: db},
+			fields{db: infla.NewDB()},
 			args{
 				ctx: context.Background(),
 				id:  1,
@@ -138,11 +135,21 @@ func TestTodoRepository_GetDetail(t *testing.T) {
 			false,
 		},
 		{
-			"select id is 2 will be error",
-			fields{db: wrongDb},
+			"select id is 0 will be blank",
+			fields{db: infla.NewDB()},
 			args{
 				ctx: context.Background(),
-				id:  2,
+				id:  9999,
+			},
+			[]domain.Todo{},
+			false,
+		},
+		{
+			"wrong db connector will be error",
+			fields{db: infla.WrongDB()},
+			args{
+				ctx: context.Background(),
+				id:  0,
 			},
 			[]domain.Todo{},
 			true,
@@ -151,7 +158,7 @@ func TestTodoRepository_GetDetail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := TodoRepository{
-				DB: tt.fields.db,
+				db: tt.fields.db,
 			}
 			got, err := r.GetDetail(tt.args.ctx, tt.args.id)
 			if (err != nil) != tt.wantErr {
@@ -203,7 +210,7 @@ func TestTodoRepository_Create(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := TodoRepository{
-				DB: tt.fields.db,
+				db: tt.fields.db,
 			}
 			if err := r.Create(tt.args.ctx, tt.args.todo); (err != nil) != tt.wantErr {
 				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)

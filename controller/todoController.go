@@ -7,8 +7,16 @@ import (
 	"todoList/service"
 )
 
+// dto/domain 을 둘다 사용 res/req 는 dto , service 호출/응답 은 domain 으로 통신
+
 type TodoController struct {
 	service service.ITodoService
+}
+
+func NewController(serv service.ITodoService) TodoController {
+	return TodoController{
+		service: serv,
+	}
 }
 
 func (c TodoController) CreateTodo(ctx context.Context, dto req.CreateTodoDto) error {
@@ -24,6 +32,8 @@ func (c TodoController) UpdateTodo(ctx context.Context, dto req.UpdateTodoDto) e
 	err := c.service.UpdateTodo(ctx, dto.ToDomain())
 	return err
 }
+
+// todo transaction 익힌후 테스트
 
 func (c TodoController) GetTodos(ctx context.Context) ([]res.ListDto, error) {
 	todoDomains, err := c.service.GetTodos(ctx)

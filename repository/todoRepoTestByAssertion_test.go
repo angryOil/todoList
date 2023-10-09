@@ -2,24 +2,18 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 	"testing"
 	"time"
 	"todoList/domain"
+	"todoList/repository/infla"
 )
 
-var dsn = "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
-var db = bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
-var wrongDB = bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN("postgres://postgres:@localhost:486/postgres?sslmode=disable"))), pgdialect.New())
-
-var repo = TodoRepository{db: db}
-var wrongRepo = TodoRepository{db: db}
-var blankCtx = context.Background()
+var repo = NewRepository(
+	infla.NewDB(),
+)
+var ctx = context.Background()
 var mockTime = time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation)
 
 func TestTodoRepository_Create_Assertion(t *testing.T) {
@@ -32,10 +26,10 @@ func TestTodoRepository_Create_Assertion(t *testing.T) {
 		CreatedAt:     mockTime,
 		LastUpdatedAt: mockTime,
 	}
-	err := repo.Create(blankCtx, reqTodo)
+	err := repo.Create(ctx, reqTodo)
 	assert.NoError(t, err)
 
-	results, err := repo.GetDetail(blankCtx, reqTodo.Id)
+	results, err := repo.GetDetail(ctx, reqTodo.Id)
 	assert.NoError(t, err)
 	assert.NotZero(t, len(results))
 	result := results[0]
@@ -48,10 +42,10 @@ func TestTodoRepository_Create_Assertion(t *testing.T) {
 	assert.Equal(t, reqTodo.LastUpdatedAt, result.LastUpdatedAt)
 
 	// 정리
-	err = repo.Delete(blankCtx, reqTodo.Id)
+	err = repo.Delete(ctx, reqTodo.Id)
 	assert.NoError(t, err)
 
-	results, err = repo.GetDetail(blankCtx, reqTodo.Id)
+	results, err = repo.GetDetail(ctx, reqTodo.Id)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(results))
@@ -68,11 +62,11 @@ func TestTodoRepository_Save_Assertion(t *testing.T) {
 		CreatedAt:     mockTime,
 		LastUpdatedAt: mockTime,
 	}
-	err := repo.Create(blankCtx, firstTodo)
+	err := repo.Create(ctx, firstTodo)
 	assert.NoError(t, err)
 
 	// 저장 확인
-	getTodos, err := repo.GetDetail(blankCtx, firstTodo.Id)
+	getTodos, err := repo.GetDetail(ctx, firstTodo.Id)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(getTodos))
 	getTodo := getTodos[0]
@@ -92,7 +86,7 @@ func TestTodoRepository_Save_Assertion(t *testing.T) {
 		LastUpdatedAt: time.Time{},
 	}
 
-	err = repo.Save(blankCtx, updateTodo, func(td domain.Todo) error {
+	err = repo.Save(ctx, updateTodo, func(td domain.Todo) error {
 		if td.Title == "" {
 			return errors.New("title is empty")
 		}
@@ -100,7 +94,7 @@ func TestTodoRepository_Save_Assertion(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	getTodos, err = repo.GetDetail(blankCtx, firstTodo.Id)
+	getTodos, err = repo.GetDetail(ctx, firstTodo.Id)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(getTodos))
 	getTodo = getTodos[0]
@@ -111,6 +105,6 @@ func TestTodoRepository_Save_Assertion(t *testing.T) {
 	assert.Equal(t, updateTodo.IsDeleted, getTodo.IsDeleted)
 
 	// 정리
-	err = repo.Delete(blankCtx, updateTodo.Id)
+	err = repo.Delete(ctx, updateTodo.Id)
 	assert.NoError(t, err)
 }

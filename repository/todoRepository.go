@@ -7,6 +7,8 @@ import (
 	"todoList/repository/model"
 )
 
+// repository 는 domain 과 model 을 둘다 사용
+
 type tx func()
 type rollback func()
 type commit func() error
@@ -17,6 +19,10 @@ type transaction interface {
 
 type TodoRepository struct {
 	db *bun.DB
+}
+
+func NewRepository(db *bun.DB) TodoRepository {
+	return TodoRepository{db: db}
 }
 
 func (r TodoRepository) Create(ctx context.Context, todo domain.Todo) error {
@@ -36,8 +42,8 @@ func (r TodoRepository) Delete(ctx context.Context, id int) error {
 // 사실상 업데이트입니다.
 // 있다면 update 있다면 save 입니다 (upsert)
 
-func (r TodoRepository) Save(ctx context.Context, td domain.Todo, saveFunc func(domain.Todo) error) error {
-	err := saveFunc(td)
+func (r TodoRepository) Save(ctx context.Context, td domain.Todo, saveValidFunc func(domain.Todo) error) error {
+	err := saveValidFunc(td)
 	if err != nil {
 		return err
 	}
@@ -56,6 +62,8 @@ func (r TodoRepository) GetDetail(ctx context.Context, id int) ([]domain.Todo, e
 	return model.ToDomainDetailList(result), nil
 }
 
+// todo transaction 을 알게 될때 테스트 예정
+
 func (r TodoRepository) GetList(ctx context.Context) ([]domain.Todo, error) {
 	var result []model.Todo
 	err := r.db.NewSelect().Model(&result).Scan(ctx)
@@ -64,5 +72,4 @@ func (r TodoRepository) GetList(ctx context.Context) ([]domain.Todo, error) {
 		return []domain.Todo{}, err
 	}
 	return model.ToDomainList(result), nil
-	return []domain.Todo{}, nil
 }
