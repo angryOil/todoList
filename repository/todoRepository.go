@@ -66,6 +66,7 @@ func (r TodoRepository) GetDetail(ctx context.Context, id int) ([]domain.Todo, e
 
 func (r TodoRepository) GetList(ctx context.Context) ([]domain.Todo, error) {
 	var result []model.Todo
+	//count, err := r.db.NewSelect().Model(&result).Count(ctx)
 	err := r.db.NewSelect().Model(&result).Scan(ctx)
 	if err != nil {
 
