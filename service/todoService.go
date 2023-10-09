@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"todoList/domain"
 	"todoList/repository"
 )
@@ -65,7 +64,7 @@ func (s TodoService) GetDetail(ctx context.Context, id int) (domain.Todo, error)
 		return domain.Todo{}, err
 	}
 	if len(detail) == 0 {
-		return domain.Todo{}, errors.New(fmt.Sprintf("no rows error: %d", id))
+		return domain.Todo{}, nil
 	}
 	return detail[0], nil
 }
