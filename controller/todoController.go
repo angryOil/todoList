@@ -33,6 +33,11 @@ func (c TodoController) UpdateTodo(ctx context.Context, dto req.UpdateTodoDto) e
 	return err
 }
 
+func (c TodoController) DeleteTodo(ctx context.Context, id int) error {
+	err := c.service.DeleteTodo(ctx, id)
+	return err
+}
+
 // todo transaction 익힌후 테스트
 
 func (c TodoController) GetTodos(ctx context.Context) ([]res.ListDto, error) {
