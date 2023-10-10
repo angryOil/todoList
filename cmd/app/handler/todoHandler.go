@@ -9,6 +9,7 @@ import (
 	"strings"
 	"todoList/controller"
 	"todoList/controller/req"
+	"todoList/deco/handler"
 	"todoList/page"
 	"todoList/repository"
 	"todoList/repository/infla"
@@ -22,7 +23,9 @@ func NewHandler() http.Handler {
 	m.HandleFunc("/todos/{id:[0-9]+}", deleteTodo).Methods(http.MethodDelete)
 	m.HandleFunc("/todos", createTodo).Methods(http.MethodPost)
 	m.HandleFunc("/todos", updateTodo).Methods(http.MethodPut)
-	return m
+	// logger 래핑
+	wrappedHandler := handler.NewDecoHandler(m, handler.Logger)
+	return wrappedHandler
 }
 
 func getController() controller.TodoController {
