@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"todoList/domain"
+	"todoList/page"
 	"todoList/repository"
 )
 
@@ -51,9 +52,9 @@ func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
 
 // todo transaction 익힌후 테스트
 
-func (s TodoService) GetTodos(ctx context.Context) ([]domain.Todo, error) {
-	todos, err := s.repo.GetList(ctx)
-	return todos, err
+func (s TodoService) GetTodos(ctx context.Context, page page.ReqPage) ([]domain.Todo, int, error) {
+	todos, totalCount, err := s.repo.GetList(ctx, page)
+	return todos, totalCount, err
 }
 
 func (s TodoService) GetDetail(ctx context.Context, id int) (domain.Todo, error) {
