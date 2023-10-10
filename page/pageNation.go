@@ -5,39 +5,41 @@ var minSize = 10
 var maxSize = 50
 
 type ReqPage struct {
-	page int
-	size int
+	Page int
+	Size int
 }
 
 func NewReqPage(page int, size int) ReqPage {
 	rp := ReqPage{}
 	if page <= minPage {
-		rp.page = 0
+		rp.Page = 0
 	} else {
-		rp.page = page
+		rp.Page = page
 	}
 	if size <= minSize {
-		rp.size = minSize
+		rp.Size = minSize
 	} else if size >= maxSize {
-		rp.size = maxSize
+		rp.Size = maxSize
 	} else {
-		rp.size = size
+		rp.Size = size
 	}
 	return rp
 }
 
 type Pagination[T any] struct {
 	Contents    []T `json:"contents"`
-	Total       int `json:"total"`
-	CurrentPage int `json:"current"`
-	LastPage    int `json:"last"`
+	Total       int `json:"total_content"`
+	CurrentPage int `json:"current_page"`
+	LastPage    int `json:"last_page"`
 }
 
-func GetPagination[T any](contents []T, rp ReqPage, currentPage int, totalCount int) Pagination[T] {
+// page 는 0번째 page 부터 시작합니다.
+
+func GetPagination[T any](contents []T, rp ReqPage, totalCount int) Pagination[T] {
 	return Pagination[T]{
 		Contents:    contents,
 		Total:       totalCount,
-		CurrentPage: currentPage + 1,
-		LastPage:    (totalCount / rp.size) + 1,
+		CurrentPage: rp.Page,
+		LastPage:    totalCount / rp.Size,
 	}
 }

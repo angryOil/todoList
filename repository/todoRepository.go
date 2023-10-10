@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/uptrace/bun"
 	"todoList/domain"
+	"todoList/page"
 	"todoList/repository/model"
 )
 
@@ -64,13 +65,15 @@ func (r TodoRepository) GetDetail(ctx context.Context, id int) ([]domain.Todo, e
 
 // todo transaction 을 알게 될때 테스트 예정
 
-func (r TodoRepository) GetList(ctx context.Context) ([]domain.Todo, error) {
+func (r TodoRepository) GetList(ctx context.Context, page page.ReqPage) ([]domain.Todo, int, error) {
 	var result []model.Todo
-	//count, err := r.db.NewSelect().Model(&result).Count(ctx)
-	err := r.db.NewSelect().Model(&result).Scan(ctx)
+
+	// order by desc 는 국룰입니다.
+	err := r.db.NewSelect().Model(&result).Limit(page.Size).Offset(page.Page * page.Size).Order("id desc").Scan(ctx)
 	if err != nil {
 
-		return []domain.Todo{}, err
+		return []domain.Todo{}, 0, err
 	}
-	return model.ToDomainList(result), nil
+	count, err := r.db.NewSelect().Model(&result).Count(ctx)
+	return model.ToDomainList(result), count, nil
 }

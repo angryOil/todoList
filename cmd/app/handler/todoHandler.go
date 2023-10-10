@@ -9,6 +9,7 @@ import (
 	"strings"
 	"todoList/controller"
 	"todoList/controller/req"
+	"todoList/page"
 	"todoList/repository"
 	"todoList/repository/infla"
 	"todoList/service"
@@ -133,18 +134,29 @@ func getTodoDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTodos(w http.ResponseWriter, r *http.Request) {
-	todoDtos, err := c.GetTodos(r.Context())
+	pageNum, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		pageNum = 0
+	}
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("size"))
+	if err != nil {
+		pageSize = 0
+	}
+	reqPage := page.NewReqPage(pageNum, pageSize)
+
+	todoDtos, count, err := c.GetTodos(r.Context(), reqPage)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
-	data, err := json.Marshal(todoDtos)
+	result := page.GetPagination(todoDtos, reqPage, count)
+	data, err := json.Marshal(result)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write([]byte(data))
+	w.Write(data)
 }
