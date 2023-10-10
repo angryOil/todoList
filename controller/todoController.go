@@ -4,6 +4,7 @@ import (
 	"context"
 	"todoList/controller/req"
 	"todoList/controller/res"
+	"todoList/page"
 	"todoList/service"
 )
 
@@ -40,13 +41,13 @@ func (c TodoController) DeleteTodo(ctx context.Context, id int) error {
 
 // todo transaction 익힌후 테스트
 
-func (c TodoController) GetTodos(ctx context.Context) ([]res.ListDto, error) {
-	todoDomains, err := c.service.GetTodos(ctx)
+func (c TodoController) GetTodos(ctx context.Context, page page.ReqPage) ([]res.ListDto, int, error) {
+	todoDomains, count, err := c.service.GetTodos(ctx, page)
 	if err != nil {
-		return []res.ListDto{}, err
+		return []res.ListDto{}, 0, err
 	}
 
-	return res.ToListDtoList(todoDomains), nil
+	return res.ToListDtoList(todoDomains), count, nil
 }
 
 func (c TodoController) GetDetail(ctx context.Context, id int) (res.DetailDto, error) {
