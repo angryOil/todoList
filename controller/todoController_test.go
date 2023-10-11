@@ -66,6 +66,38 @@ func TestTodoController_Update_Success(t *testing.T) {
 
 }
 
+func TestTodoController_DeleteTodo(t *testing.T) {
+	reqDto := req.UpdateTodoDto{
+		Id:        7777,
+		Title:     "ti",
+		Content:   "con",
+		OrderNum:  2,
+		IsDeleted: false,
+	}
+	//생성및 확인
+	err := c.UpdateTodo(ctx, reqDto)
+	assert.NoError(t, err)
+
+	findTodo, err := c.GetDetail(ctx, reqDto.Id)
+	assert.NoError(t, err)
+
+	assert.Equal(t, reqDto.Id, findTodo.Id)
+	assert.Equal(t, reqDto.Title, findTodo.Title)
+	assert.Equal(t, reqDto.Content, findTodo.Content)
+	assert.Equal(t, reqDto.OrderNum, findTodo.OrderNum)
+	assert.Equal(t, reqDto.IsDeleted, findTodo.IsDeleted)
+
+	// 삭제
+	err = c.DeleteTodo(ctx, reqDto.Id)
+	assert.NoError(t, err)
+
+	// 삭제후 다시조회
+	findTodo, err = c.GetDetail(ctx, reqDto.Id)
+	assert.Contains(t, err.Error(), "no rows")
+	assert.Equal(t, res.DetailDto{}, findTodo)
+
+}
+
 func TestTodoController_Update_Fail(t *testing.T) {
 	onlyTitleDto := req.UpdateTodoDto{
 		Id:    11,

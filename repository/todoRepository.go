@@ -15,7 +15,7 @@ type rollback func()
 type commit func() error
 
 type transaction interface {
-	begin() (error, tx, rollback, commit)
+	begin() (tx, rollback, commit, error)
 }
 
 type TodoRepository struct {
@@ -24,6 +24,11 @@ type TodoRepository struct {
 
 func NewRepository(db *bun.DB) TodoRepository {
 	return TodoRepository{db: db}
+}
+
+func (r TodoRepository) GetTransaction(ctx context.Context) (bun.Tx, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	return tx, err
 }
 
 func (r TodoRepository) Create(ctx context.Context, todo domain.Todo) error {
@@ -53,6 +58,16 @@ func (r TodoRepository) Save(ctx context.Context, td domain.Todo, saveValidFunc 
 		On("CONFLICT (id) DO UPDATE").Exec(ctx)
 	return err
 }
+func (r TodoRepository) TxSave(ctx context.Context, tx bun.Tx, td domain.Todo, saveValidFunc func(domain.Todo) error) error {
+	err := saveValidFunc(td)
+	if err != nil {
+		return err
+	}
+	tdModel := model.ToDetailModel(td)
+	_, err = tx.NewInsert().Model(&tdModel).
+		On("CONFLICT (id) DO UPDATE").Exec(ctx)
+	return err
+}
 
 func (r TodoRepository) GetDetail(ctx context.Context, id int) ([]domain.Todo, error) {
 	var result []model.TodoDetail
@@ -75,5 +90,18 @@ func (r TodoRepository) GetList(ctx context.Context, page page.ReqPage) ([]domai
 		return []domain.Todo{}, 0, err
 	}
 	count, err := r.db.NewSelect().Model(&result).Count(ctx)
+	return model.ToDomainList(result), count, nil
+}
+
+func (r TodoRepository) TxGetList(ctx context.Context, tx bun.Tx, page page.ReqPage) ([]domain.Todo, int, error) {
+	var result []model.Todo
+
+	// order by desc 는 국룰입니다.
+	err := tx.NewSelect().Model(&result).Limit(page.Size).Offset(page.Page * page.Size).Order("id desc").Scan(ctx)
+	if err != nil {
+
+		return []domain.Todo{}, 0, err
+	}
+	count, err := tx.NewSelect().Model(&result).Count(ctx)
 	return model.ToDomainList(result), count, nil
 }
