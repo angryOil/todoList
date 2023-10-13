@@ -3,10 +3,13 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"testing"
 	"time"
 	"todoList/domain"
+	"todoList/page"
 	"todoList/repository/infla"
 )
 
@@ -107,4 +110,62 @@ func TestTodoRepository_Save_Assertion(t *testing.T) {
 	// 정리
 	err = repo.Delete(ctx, updateTodo.Id)
 	assert.NoError(t, err)
+}
+
+func TestTodoRepository_GetTransaction(t *testing.T) {
+	var todos []domain.Todo
+	for i := 1; i <= 10; i++ {
+		t := domain.Todo{
+			Id:            i,
+			Title:         "request title" + strconv.Itoa(i),
+			Content:       "content" + strconv.Itoa(i),
+			OrderNum:      i,
+			IsDeleted:     false,
+			CreatedAt:     mockTime,
+			LastUpdatedAt: mockTime,
+		}
+		todos = append(todos, t)
+	}
+	tx, err := repo.GetTransaction(ctx)
+	if err != nil {
+		panic(err)
+	}
+	tx.BeginTx(ctx, nil)
+
+	// 저장전 컨텐츠 숫자 확인
+	reqPage := page.NewReqPage(0, 0)
+	_, beforeCnt, err := repo.TxGetList(ctx, tx, reqPage)
+	if err != nil {
+		panic(err)
+	}
+
+	// 저장
+	for _, t := range todos {
+		err := repo.TxSave(ctx, tx, t, func(_ domain.Todo) error {
+			return nil
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("beforeCnt:", beforeCnt)
+	reqPage = page.NewReqPage(0, beforeCnt)
+	results, afterCnt, err := repo.TxGetList(ctx, tx, reqPage)
+	if err != nil {
+		panic(err)
+	}
+
+	assert.True(t, results[0].CreatedAt.IsZero())
+
+	fmt.Println("afterCnt", afterCnt)
+	for _, r := range results {
+		fmt.Println(r)
+	}
+	assert.Equal(t, afterCnt, beforeCnt+len(todos))
+
+	err = tx.Rollback()
+	if err != nil {
+		panic("tx 롤백 실패!" + err.Error())
+	}
 }
