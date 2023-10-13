@@ -39,8 +39,6 @@ func (c TodoController) DeleteTodo(ctx context.Context, id int) error {
 	return err
 }
 
-// todo transaction 익힌후 테스트
-
 func (c TodoController) GetTodos(ctx context.Context, page page.ReqPage) ([]res.ListDto, int, error) {
 	todoDomains, count, err := c.service.GetTodos(ctx, page)
 	if err != nil {

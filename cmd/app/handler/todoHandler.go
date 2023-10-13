@@ -23,8 +23,10 @@ func NewHandler() http.Handler {
 	m.HandleFunc("/todos/{id:[0-9]+}", deleteTodo).Methods(http.MethodDelete)
 	m.HandleFunc("/todos", createTodo).Methods(http.MethodPost)
 	m.HandleFunc("/todos", updateTodo).Methods(http.MethodPut)
+	// middleware 래핑
+	middlewareWrapped := handler.NewDecoHandler(m, handler.AuthMiddleware)
 	// logger 래핑
-	wrappedHandler := handler.NewDecoHandler(m, handler.Logger)
+	wrappedHandler := handler.NewDecoHandler(middlewareWrapped, handler.Logger)
 	return wrappedHandler
 }
 
