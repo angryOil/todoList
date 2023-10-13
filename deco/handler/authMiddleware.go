@@ -4,30 +4,32 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 )
-
-var authUrl = "http://localhost:8081/users"
 
 type user struct {
 	UserID int    `json:"user_id"`
 	Email  string `json:"email"`
 }
 
+// server 연결되있는지 확인 먼저 필요
+
 func AuthMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
 	token := r.URL.Query().Get("token")
-	re, _ := http.NewRequest("POST", authUrl+"/verify?token="+token, nil)
-	resp, err := http.DefaultClient.Do(re)
-	defer resp.Body.Close()
-	if err != nil {
-		fmt.Println("err:", err)
+	if !tokenCheck(token) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid token"))
 		return
 	}
 
-	if resp.Body == nil {
-		fmt.Println("response body is nil")
+	err := verifyToAuthServer(token)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -35,10 +37,39 @@ func AuthMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
 	payload, err := base64.RawStdEncoding.DecodeString(parts[1])
 	if err != nil {
 		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
 	}
 	u := user{}
 	err = json.Unmarshal(payload, &u)
-	fmt.Println(u)
+
 	ctx := context.WithValue(r.Context(), "userId", u.UserID)
 	h.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func verifyToAuthServer(token string) error {
+	authUrl := "http://localhost:8081/users/verify?token=" + token
+	re, _ := http.NewRequest("POST", authUrl, nil)
+	resp, err := http.DefaultClient.Do(re)
+	if err != nil {
+		return errors.New("auth server error :" + err.Error())
+	}
+	if resp.StatusCode != http.StatusOK {
+		readBody, _ := io.ReadAll(resp.Body)
+		return errors.New(string(readBody))
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+func tokenCheck(token string) bool {
+	if token == "" {
+		return false
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	return true
 }
