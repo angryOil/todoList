@@ -40,8 +40,8 @@ func (r TodoRepository) Create(ctx context.Context, todo domain.Todo) error {
 	return nil
 }
 
-func (r TodoRepository) Delete(ctx context.Context, id int) error {
-	_, err := r.db.NewDelete().Model(&model.Todo{}).Where("id = ?", id).Exec(ctx)
+func (r TodoRepository) Delete(ctx context.Context, userId, id int) error {
+	_, err := r.db.NewDelete().Model(&model.Todo{}).Where("id = ? And user_id=?", id, userId).Exec(ctx)
 	return err
 }
 
@@ -69,27 +69,25 @@ func (r TodoRepository) TxSave(ctx context.Context, tx bun.Tx, td domain.Todo, s
 	return err
 }
 
-func (r TodoRepository) GetDetail(ctx context.Context, id int) ([]domain.Todo, error) {
+func (r TodoRepository) GetDetail(ctx context.Context, userId, id int) ([]domain.Todo, error) {
 	var result []model.TodoDetail
-	err := r.db.NewSelect().Model(&result).Where("id = ?", id).Scan(ctx)
+	err := r.db.NewSelect().Model(&result).Where("id = ? AND user_id = ?", id, userId).Scan(ctx)
 	if err != nil {
 		return []domain.Todo{}, err
 	}
 	return model.ToDomainDetailList(result), nil
 }
 
-// todo transaction 을 알게 될때 테스트 예정
-
-func (r TodoRepository) GetList(ctx context.Context, page page.ReqPage) ([]domain.Todo, int, error) {
+func (r TodoRepository) GetList(ctx context.Context, userId int, page page.ReqPage) ([]domain.Todo, int, error) {
 	var result []model.Todo
 
 	// order by desc 는 국룰입니다.
-	err := r.db.NewSelect().Model(&result).Limit(page.Size).Offset(page.Page * page.Size).Order("id desc").Scan(ctx)
+	err := r.db.NewSelect().Model(&result).Where("user_id =?", userId).Limit(page.Size).Offset(page.Page * page.Size).Order("id desc").Scan(ctx)
 	if err != nil {
 
 		return []domain.Todo{}, 0, err
 	}
-	count, err := r.db.NewSelect().Model(&result).Count(ctx)
+	count, err := r.db.NewSelect().Where("user_id=?", userId).Model(&result).Count(ctx)
 	return model.ToDomainList(result), count, nil
 }
 

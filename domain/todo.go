@@ -7,6 +7,7 @@ import (
 
 type Todo struct {
 	Id            int
+	UserId        int
 	Title         string
 	Content       string
 	OrderNum      int
@@ -15,12 +16,13 @@ type Todo struct {
 	LastUpdatedAt time.Time
 }
 
-func CreatedTodo(title, content string, orderNum int) (Todo, error) {
+func CreatedTodo(userId int, title, content string, orderNum int) (Todo, error) {
 	if err := validateCreateTodo(title, content, orderNum); err != nil {
 		return Todo{}, err
 	}
 
 	return Todo{
+		UserId:   userId,
 		Title:    title,
 		Content:  content,
 		OrderNum: orderNum,
