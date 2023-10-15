@@ -19,10 +19,10 @@ type transaction interface {
 }
 
 type TodoRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
-func NewRepository(db *bun.DB) TodoRepository {
+func NewRepository(db bun.IDB) TodoRepository {
 	return TodoRepository{db: db}
 }
 
@@ -48,24 +48,42 @@ func (r TodoRepository) Delete(ctx context.Context, userId, id int) error {
 // 사실상 업데이트입니다.
 // 있다면 update 있다면 save 입니다 (upsert)
 
-func (r TodoRepository) Save(ctx context.Context, td domain.Todo, saveValidFunc func(domain.Todo) error) error {
-	err := saveValidFunc(td)
+func (r TodoRepository) Save(
+	ctx context.Context, userId, id int,
+	getValidFunc func([]domain.Todo) (domain.Todo, error),
+	mergeTodo func(todo domain.Todo) domain.Todo,
+	saveValidFunc func(domain.Todo) error,
+) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	tdModel := model.ToDetailModel(td)
-	_, err = r.db.NewInsert().Model(&tdModel).
-		On("CONFLICT (id) DO UPDATE").Exec(ctx)
-	return err
-}
-func (r TodoRepository) TxSave(ctx context.Context, tx bun.Tx, td domain.Todo, saveValidFunc func(domain.Todo) error) error {
-	err := saveValidFunc(td)
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	r2 := NewRepository(tx)
+	todos, err := r2.GetDetail(ctx, userId, id)
 	if err != nil {
 		return err
 	}
-	tdModel := model.ToDetailModel(td)
-	_, err = tx.NewInsert().Model(&tdModel).
+
+	todo, err := getValidFunc(todos)
+	if err != nil {
+		return err
+	}
+	todo = mergeTodo(todo)
+	err = saveValidFunc(todo)
+	if err != nil {
+		return err
+	}
+
+	tdModel := model.ToDetailModel(todo)
+	_, err = r2.db.NewInsert().Model(&tdModel).
 		On("CONFLICT (id) DO UPDATE").Exec(ctx)
+	err = tx.Commit()
 	return err
 }
 

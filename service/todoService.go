@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"todoList/domain"
 	"todoList/page"
 	"todoList/repository"
@@ -35,27 +36,36 @@ func (s TodoService) DeleteTodo(ctx context.Context, userId, id int) error {
 }
 
 func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
-	todos, err := s.repo.GetDetail(ctx, todo.UserId, todo.Id)
-	if err != nil {
-		return err
-	}
-	if len(todos) == 0 {
-		return errors.New("empty rows")
-	}
-
-	// select => update
-	err = s.repo.Save(ctx, todo, func(todoDomain domain.Todo) error {
-		if todo.Id == 0 {
-			return errors.New("id is no value")
-		}
-		_, err := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	err := s.repo.Save(ctx,
+		todo.UserId, todo.Id,
+		func(todos []domain.Todo) (domain.Todo, error) {
+			if len(todos) == 0 {
+				return domain.Todo{}, errors.New("no row error")
+			}
+			if todos[0].UserId != todo.UserId {
+				return domain.Todo{}, errors.New("it`s not yours error who are u?")
+			}
+			return todos[0], nil
+		},
+		func(t domain.Todo) domain.Todo {
+			t.Title = todo.Title
+			t.Content = todo.Content
+			t.IsDeleted = todo.IsDeleted
+			t.OrderNum = todo.OrderNum
+			t.LastUpdatedAt = time.Now()
+			return t
+		},
+		updateValidFunc,
+	)
 
 	return err
+}
+
+func updateValidFunc(t domain.Todo) error {
+	if t.Id == 0 {
+		return errors.New("todo id zero")
+	}
+	return nil
 }
 
 func (s TodoService) GetTodos(ctx context.Context, userId int, page page.ReqPage) ([]domain.Todo, int, error) {

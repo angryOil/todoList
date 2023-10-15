@@ -46,6 +46,7 @@ type TodoDetail struct {
 func (t TodoDetail) ToDomain() domain.Todo {
 	return domain.Todo{
 		Id:            t.Id,
+		UserId:        t.UserId,
 		Title:         t.Title,
 		Content:       t.Content,
 		OrderNum:      t.OrderNum,

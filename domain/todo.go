@@ -22,10 +22,11 @@ func CreatedTodo(userId int, title, content string, orderNum int) (Todo, error) 
 	}
 
 	return Todo{
-		UserId:   userId,
-		Title:    title,
-		Content:  content,
-		OrderNum: orderNum,
+		UserId:    userId,
+		Title:     title,
+		Content:   content,
+		CreatedAt: time.Now(),
+		OrderNum:  orderNum,
 	}, nil
 }
 
