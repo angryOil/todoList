@@ -2,153 +2,142 @@ package repository
 
 import (
 	"context"
-	"database/sql"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
-	"reflect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
+	"log"
 	"testing"
 	"time"
 	"todoList/domain"
 	"todoList/repository/infla"
 )
 
-var utcLocation, _ = time.LoadLocation("")
-
-//func init() {
-//	testDomain := domain.Todo{
-//		Id:            1,
-//		Title:         "인생은 쓰다 하..",
-//		Content:       "오늘 집에 오다가 지하철에 지갑을 두고 내렸다",
-//		OrderNum:      1,
-//		IsDeleted:     false,
-//		CreatedAt:     time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-//		LastUpdatedAt: time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-//	}
-//	err := repo.Save(context.Background(), testDomain, func(t domain.Todo) error {
-//		return nil
-//	})
-//	if err != nil {
-//		panic("초기화 실패.. 테스트 불가 ")
-//	}
-//}
-
-func TestTodoRepository_GetDetail(t *testing.T) {
-	type fields struct {
-		db *bun.DB
-	}
-	type args struct {
-		ctx context.Context
-		id  int
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []domain.Todo
-		wantErr bool
-	}{
-		{
-			"select id is 1",
-			fields{db: infla.NewDB()},
-			args{
-				ctx: context.Background(),
-				id:  1,
-			},
-			[]domain.Todo{
-				{
-					Id:            1,
-					Title:         "인생은 쓰다 하..",
-					Content:       "오늘 집에 오다가 지하철에 지갑을 두고 내렸다",
-					OrderNum:      1,
-					IsDeleted:     false,
-					CreatedAt:     time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-					LastUpdatedAt: time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-				},
-			},
-			false,
-		},
-		{
-			"select id is 0 will be blank",
-			fields{db: infla.NewDB()},
-			args{
-				ctx: context.Background(),
-				id:  9999,
-			},
-			[]domain.Todo{},
-			false,
-		},
-		{
-			"wrong db connector will be error",
-			fields{db: infla.WrongDB()},
-			args{
-				ctx: context.Background(),
-				id:  0,
-			},
-			[]domain.Todo{},
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := TodoRepository{
-				db: tt.fields.db,
-			}
-			got, err := r.GetDetail(tt.args.ctx, tt.args.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetDetail() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetDetail() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+type TodoRepositoryTestSuite struct {
+	suite.Suite
+	repository    *TodoRepository
+	rollback      func() error
+	commit        func() error
+	koreaLocation *time.Location
 }
 
-func TestTodoRepository_Create(t *testing.T) {
-	dsn := "postgres://postgres:@localhost:5432/postgres?sslmode=disable"
-	db := bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
+func TestTodoRepositoryTestSuite(t *testing.T) {
+	suite.Run(t, &TodoRepositoryTestSuite{})
+}
 
-	type fields struct {
-		db *bun.DB
+func (s *TodoRepositoryTestSuite) SetupTest() {
+	var db = infla.NewDB()
+	tx, err := db.BeginTx(context.Background(), nil)
+	if err != nil {
+		log.Panicf("tx setup fail err: %e", err)
 	}
-	type args struct {
-		ctx  context.Context
-		todo domain.Todo
+	s.rollback = tx.Rollback
+	s.commit = tx.Commit
+	s.koreaLocation, err = time.LoadLocation("Asia/Seoul")
+	if err != nil {
+		log.Panicf("location setup fail err: %e", err)
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name:   "right create test",
-			fields: fields{db: db},
-			args: args{
-				ctx: context.Background(),
-				todo: domain.Todo{
-					Id:            0,
-					Title:         "새로운 타이틀",
-					Content:       "새로운 글",
-					OrderNum:      2,
-					IsDeleted:     false,
-					CreatedAt:     time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
-					LastUpdatedAt: time.Date(2022, 10, 10, 11, 30, 30, 0, utcLocation),
+
+	repository := NewRepository(tx)
+	s.repository = &repository
+}
+
+func (s *TodoRepositoryTestSuite) AfterTest(suiteName, testName string) {
+	log.Printf("roll back / suiteName: %s, testName: %s", suiteName, testName)
+	s.commit()
+}
+
+func (s *TodoRepositoryTestSuite) TestGetDetail() {
+	s.Run("userId 8과 id 16이 주어진다면", func() {
+		result, err := s.repository.GetDetail(context.Background(), 8, 16)
+
+		assert.Equal(s.T(), 1, len(result))
+		assert.Equal(s.T(), 8, result[0].UserId)
+		assert.Equal(s.T(), 16, result[0].Id)
+		assert.Nil(s.T(), err)
+	})
+}
+
+func (s *TodoRepositoryTestSuite) TestSave() {
+	s.Run("userId 8이고 id 16인 todo 를 수정할때", func() {
+		s.Run("각 request 에 해당하는 값이 모두 주어졌을때", func() {
+			userId := 8
+			id := 16
+			givenDomainTodo := domain.Todo{
+				Id:            id,
+				UserId:        userId,
+				Title:         "mock title",
+				Content:       "mock content",
+				OrderNum:      100,
+				IsDeleted:     false,
+				CreatedAt:     time.Date(1, 2, 3, 4, 5, 6, 7, s.koreaLocation),
+				LastUpdatedAt: time.Date(1, 2, 3, 4, 5, 6, 7, s.koreaLocation),
+			}
+
+			err := s.repository.Save(context.Background(), userId, id,
+				func(todos []domain.Todo) (domain.Todo, error) {
+					var t = todos[0]
+					return domain.Todo{
+						Id:            t.Id,
+						UserId:        t.UserId,
+						Title:         t.Title,
+						Content:       t.Content,
+						OrderNum:      t.OrderNum,
+						IsDeleted:     t.IsDeleted,
+						CreatedAt:     t.CreatedAt,
+						LastUpdatedAt: t.LastUpdatedAt,
+					}, nil
 				},
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := TodoRepository{
-				db: tt.fields.db,
-			}
-			if err := r.Create(tt.args.ctx, tt.args.todo); (err != nil) != tt.wantErr {
-				t.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
-			}
+				func(todo domain.Todo) domain.Todo {
+					return givenDomainTodo
+				},
+				func(todo domain.Todo) error {
+					return nil
+				},
+			)
+
+			assert.Nil(s.T(), err)
 		})
-	}
+	})
+}
+
+func (s *TodoRepositoryTestSuite) TestSave2() {
+	s.Run("userId 8이고 id 16인 todo 를 수정할때", func() {
+		s.Run("각 request 에 해당하는 값이 모두 주어졌을때", func() {
+			userId := 8
+			id := 16
+			givenDomainTodo := domain.Todo{
+				Id:            id,
+				UserId:        userId,
+				Title:         "mock title",
+				Content:       "mock content",
+				OrderNum:      100,
+				IsDeleted:     false,
+				CreatedAt:     time.Date(1, 2, 3, 4, 5, 6, 7, s.koreaLocation),
+				LastUpdatedAt: time.Date(1, 2, 3, 4, 5, 6, 7, s.koreaLocation),
+			}
+
+			err := s.repository.Save(context.Background(), userId, id,
+				func(todos []domain.Todo) (domain.Todo, error) {
+					var t = todos[0]
+					return domain.Todo{
+						Id:            t.Id,
+						UserId:        t.UserId,
+						Title:         t.Title,
+						Content:       t.Content,
+						OrderNum:      t.OrderNum,
+						IsDeleted:     t.IsDeleted,
+						CreatedAt:     t.CreatedAt,
+						LastUpdatedAt: t.LastUpdatedAt,
+					}, nil
+				},
+				func(todo domain.Todo) domain.Todo {
+					return givenDomainTodo
+				},
+				func(todo domain.Todo) error {
+					return nil
+				},
+			)
+
+			assert.Nil(s.T(), err)
+		})
+	})
 }
