@@ -43,8 +43,13 @@ func AuthMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
 	}
 	u := user{}
 	err = json.Unmarshal(payload, &u)
-
+	if u.UserID == 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("user id is not valid"))
+		return
+	}
 	ctx := context.WithValue(r.Context(), "userId", u.UserID)
+
 	h.ServeHTTP(w, r.WithContext(ctx))
 }
 

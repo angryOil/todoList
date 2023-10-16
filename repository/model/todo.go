@@ -10,6 +10,7 @@ type Todo struct {
 	bun.BaseModel `bun:"table:todo,alias:t"`
 
 	Id            int       `bun:"id,pk,autoincrement"`
+	UserId        int       `bun:"user_id,bigint,notnull"`
 	Title         string    `bun:"title,notnull"`
 	OrderNum      int       `bun:"order_num,notnull"`
 	IsDeleted     bool      `bun:"is_deleted,notnull"`
@@ -20,6 +21,7 @@ type Todo struct {
 func (t Todo) ToDomain() domain.Todo {
 	return domain.Todo{
 		Id:            t.Id,
+		UserId:        t.UserId,
 		Title:         t.Title,
 		OrderNum:      t.OrderNum,
 		IsDeleted:     t.IsDeleted,
@@ -32,6 +34,7 @@ type TodoDetail struct {
 	bun.BaseModel `bun:"table:todo,alias:t"`
 
 	Id            int       `bun:"id,pk,autoincrement"`
+	UserId        int       `bun:"user_id,bigint,notnull"`
 	Title         string    `bun:"title,notnull"`
 	Content       string    `bun:"content,notnull"`
 	OrderNum      int       `bun:"order_num,notnull"`
@@ -43,6 +46,7 @@ type TodoDetail struct {
 func (t TodoDetail) ToDomain() domain.Todo {
 	return domain.Todo{
 		Id:            t.Id,
+		UserId:        t.UserId,
 		Title:         t.Title,
 		Content:       t.Content,
 		OrderNum:      t.OrderNum,
@@ -73,6 +77,7 @@ func ToDomainDetailList(list []TodoDetail) []domain.Todo {
 func ToDetailModel(dt domain.Todo) TodoDetail {
 	return TodoDetail{
 		Id:            dt.Id,
+		UserId:        dt.UserId,
 		Title:         dt.Title,
 		Content:       dt.Content,
 		OrderNum:      dt.OrderNum,
