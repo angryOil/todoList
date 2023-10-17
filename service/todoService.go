@@ -21,13 +21,13 @@ func NewService(repo repository.ITodoRepository) TodoService {
 	return TodoService{repo: repo}
 }
 func (s TodoService) CreateTodo(ctx context.Context, todo domain.Todo) error {
-	createdTodo, err1 := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
-	if err1 != nil {
-		return err1
+	createdTodo, err := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
+	if err != nil {
+		return err
 	}
 
-	err2 := s.repo.Create(ctx, createdTodo)
-	return err2
+	err = s.repo.Create(ctx, createdTodo)
+	return err
 }
 
 func (s TodoService) DeleteTodo(ctx context.Context, userId, id int) error {
@@ -63,7 +63,10 @@ func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
 
 func updateValidFunc(t domain.Todo) error {
 	if t.Id == 0 {
-		return errors.New("todo id zero")
+		return errors.New("todoId is zero")
+	}
+	if t.UserId == 0 {
+		return errors.New("userId is zero")
 	}
 	return nil
 }

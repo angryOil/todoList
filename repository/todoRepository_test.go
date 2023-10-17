@@ -17,7 +17,7 @@ import (
 
 type TodoRepositoryTestSuite struct {
 	suite.Suite
-	repository    *TodoRepository
+	repository    ITodoRepository
 	rollback      func() error
 	commit        func() error
 	koreaLocation *time.Location
@@ -43,7 +43,7 @@ func (s *TodoRepositoryTestSuite) SetupTest() {
 	}
 
 	repository := NewRepository(tx)
-	s.repository = &repository
+	s.repository = repository
 }
 
 // userId 가9999 인 테스트 데이터를 10개 가지고 시작할거임
@@ -102,6 +102,14 @@ func getTestSaveValid(todo domain.Todo) error {
 		return errors.New("todoId is zero")
 	}
 	return nil
+}
+
+var (
+	Repo = "repo"
+)
+
+var RepoTestFun = func() {
+	log.Println("test")
 }
 
 // 각테스트전에 실행
