@@ -135,6 +135,12 @@ func (s *TodoServiceTestSuite) TestCreateSuccess() {
 		assert.NoError(s.T(), err)
 		assert.Equal(s.T(), afterCnt, beforeCnt+1)
 	})
+	s.Run("userId에 0을 넣었을경우", func() {
+		_, totalCnt, err := s.service.GetTodos(context.Background(), 0, baseTestPageReq)
+		assert.Error(s.T(), err)
+		assert.Contains(s.T(), err.Error(), "userId is zero")
+		assert.Equal(s.T(), 0, totalCnt)
+	})
 }
 func (s *TodoServiceTestSuite) TestCreateFail() {
 	s.Run("제목이 없을경우 제목이없다는 에러를 리턴 ", func() {
@@ -222,12 +228,12 @@ func (s *TodoServiceTestSuite) TestUpdate() {
 		assert.Equal(s.T(), "mod title", result.Title)
 		assert.Equal(s.T(), "mod content", result.Content)
 	})
-	s.Run("update 메소드에 잘못된 값을 수었을 경우", func() {
+	s.Run("update 메소드에 잘못된 값을 주었을 경우", func() {
 		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
 		// 빈값이었을경우
 		err := s.service.UpdateTodo(context.Background(), domain.Todo{})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "no row error")
+		assert.Contains(s.T(), err.Error(), "todoId is zero")
 
 		// id가 없을경우
 		err = s.service.UpdateTodo(context.Background(), domain.Todo{
@@ -238,7 +244,7 @@ func (s *TodoServiceTestSuite) TestUpdate() {
 			IsDeleted: target.IsDeleted,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "no row error")
+		assert.Contains(s.T(), err.Error(), "todoId is zero")
 
 		// userId 가 없을경
 		err = s.service.UpdateTodo(context.Background(), domain.Todo{
@@ -249,7 +255,41 @@ func (s *TodoServiceTestSuite) TestUpdate() {
 			IsDeleted: target.IsDeleted,
 		})
 		assert.Error(s.T(), err)
+		assert.Contains(s.T(), err.Error(), "userId is zero")
+	})
+	s.Run("없는 todo를 수정하려 할경우 error를 반환한다", func() {
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		// 값부터 삭제
+		err := s.service.DeleteTodo(context.Background(), target.UserId, target.Id)
+		assert.NoError(s.T(), err)
+		// 변경 시도
+		err = s.service.UpdateTodo(context.Background(), target)
+		assert.Error(s.T(), err)
 		assert.Contains(s.T(), err.Error(), "no row error")
+	})
+}
+
+func (s *TodoServiceTestSuite) TestGetDetail() {
+	s.Run("id가 0일경우 error를 반환한다", func() {
+		ctx := context.Background()
+		todo, err := s.service.GetDetail(ctx, 10, 0)
+		assert.Error(s.T(), err)
+		assert.Contains(s.T(), err.Error(), "id is zero")
+		assert.Equal(s.T(), domain.Todo{}, todo)
+	})
+	s.Run("결과 row 가없는 경우 error를 반환한다", func() {
+		// 값을 삭제 (row 가 없어짐)
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "userId", baseTestDomain.UserId)
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		err := s.service.DeleteTodo(ctx, target.UserId, target.Id)
+		assert.NoError(s.T(), err)
+
+		// 조회
+		todo, err := s.service.GetDetail(ctx, target.UserId, target.Id)
+		assert.Error(s.T(), err)
+		assert.Contains(s.T(), err.Error(), "no rows error: "+strconv.Itoa(target.Id))
+		assert.Equal(s.T(), domain.Todo{}, todo)
 	})
 }
 
