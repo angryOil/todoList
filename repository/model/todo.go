@@ -6,6 +6,8 @@ import (
 	"todoList/domain"
 )
 
+// todoList조회용 content 가 없음
+
 type Todo struct {
 	bun.BaseModel `bun:"table:todo,alias:t"`
 
@@ -29,6 +31,8 @@ func (t Todo) ToDomain() domain.Todo {
 		LastUpdatedAt: t.LastUpdatedAt,
 	}
 }
+
+// todoDetail 조회용 모든 filed가 다 있음
 
 type TodoDetail struct {
 	bun.BaseModel `bun:"table:todo,alias:t"`
