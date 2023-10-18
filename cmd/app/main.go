@@ -21,6 +21,7 @@ func main() {
 	http.ListenAndServe(":8080", wrappedHandler)
 }
 
+// 주입 방식변경
 func getController() controller.TodoController {
 	return controller.NewController(
 		service.NewService(
