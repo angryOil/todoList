@@ -1,6 +1,7 @@
 package req
 
 import (
+	"time"
 	"todoList/domain"
 )
 
@@ -17,8 +18,9 @@ type CreateTodoDto struct {
 	OrderNum int    `json:"order_num"`
 }
 
-func (d CreateTodoDto) ToDomain() domain.Todo {
+func (d CreateTodoDto) ToDomain(userId int) domain.Todo {
 	return domain.Todo{
+		UserId:   userId,
 		Title:    d.Title,
 		Content:  d.Content,
 		OrderNum: d.OrderNum,
@@ -33,12 +35,14 @@ type UpdateTodoDto struct {
 	IsDeleted bool   `json:"is_deleted"`
 }
 
-func (d UpdateTodoDto) ToDomain() domain.Todo {
+func (d UpdateTodoDto) ToDomain(userId int) domain.Todo {
 	return domain.Todo{
-		Id:        d.Id,
-		Title:     d.Title,
-		Content:   d.Content,
-		OrderNum:  d.OrderNum,
-		IsDeleted: d.IsDeleted,
+		Id:            d.Id,
+		UserId:        userId,
+		Title:         d.Title,
+		Content:       d.Content,
+		OrderNum:      d.OrderNum,
+		LastUpdatedAt: time.Now(),
+		IsDeleted:     d.IsDeleted,
 	}
 }

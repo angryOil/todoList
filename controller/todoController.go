@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"todoList/controller/req"
 	"todoList/controller/res"
 	"todoList/page"
@@ -21,7 +22,14 @@ func NewController(serv service.ITodoService) TodoController {
 }
 
 func (c TodoController) CreateTodo(ctx context.Context, dto req.CreateTodoDto) error {
-	err := c.service.CreateTodo(ctx, dto.ToDomain())
+	userId, ok := ctx.Value("userId").(int)
+	if !ok {
+		return errors.New("user id is not valid")
+	}
+	if userId == 0 {
+		return errors.New("userId is zero")
+	}
+	err := c.service.CreateTodo(ctx, dto.ToDomain(userId))
 	if err != nil {
 		return err
 	}
@@ -30,19 +38,29 @@ func (c TodoController) CreateTodo(ctx context.Context, dto req.CreateTodoDto) e
 }
 
 func (c TodoController) UpdateTodo(ctx context.Context, dto req.UpdateTodoDto) error {
-	err := c.service.UpdateTodo(ctx, dto.ToDomain())
+	userId, ok := ctx.Value("userId").(int)
+	if !ok {
+		return errors.New("user id is not valid")
+	}
+	err := c.service.UpdateTodo(ctx, dto.ToDomain(userId))
 	return err
 }
 
 func (c TodoController) DeleteTodo(ctx context.Context, id int) error {
-	err := c.service.DeleteTodo(ctx, id)
+	userId, ok := ctx.Value("userId").(int)
+	if !ok {
+		return errors.New("user id is not valid")
+	}
+	err := c.service.DeleteTodo(ctx, userId, id)
 	return err
 }
 
-// todo transaction 익힌후 테스트
-
 func (c TodoController) GetTodos(ctx context.Context, page page.ReqPage) ([]res.ListDto, int, error) {
-	todoDomains, count, err := c.service.GetTodos(ctx, page)
+	userId, ok := ctx.Value("userId").(int)
+	if !ok {
+		return []res.ListDto{}, 0, errors.New("user id is not valid")
+	}
+	todoDomains, count, err := c.service.GetTodos(ctx, userId, page)
 	if err != nil {
 		return []res.ListDto{}, 0, err
 	}
@@ -51,7 +69,11 @@ func (c TodoController) GetTodos(ctx context.Context, page page.ReqPage) ([]res.
 }
 
 func (c TodoController) GetDetail(ctx context.Context, id int) (res.DetailDto, error) {
-	todo, err := c.service.GetDetail(ctx, id)
+	userId, ok := ctx.Value("userId").(int)
+	if !ok {
+		return res.DetailDto{}, errors.New("user id is not valid")
+	}
+	todo, err := c.service.GetDetail(ctx, userId, id)
 	if err != nil {
 		return res.DetailDto{}, err
 	}

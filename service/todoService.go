@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"todoList/domain"
 	"todoList/page"
 	"todoList/repository"
@@ -20,48 +21,70 @@ func NewService(repo repository.ITodoRepository) TodoService {
 	return TodoService{repo: repo}
 }
 func (s TodoService) CreateTodo(ctx context.Context, todo domain.Todo) error {
-	createdTodo, err1 := domain.CreatedTodo(todo.Title, todo.Content, todo.OrderNum)
-	if err1 != nil {
-		return err1
+	createdTodo, err := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
+	if err != nil {
+		return err
 	}
 
-	err2 := s.repo.Create(ctx, createdTodo)
-	return err2
+	err = s.repo.Create(ctx, createdTodo)
+	return err
 }
 
-func (s TodoService) DeleteTodo(ctx context.Context, id int) error {
-	err := s.repo.Delete(ctx, id)
+func (s TodoService) DeleteTodo(ctx context.Context, userId, id int) error {
+	err := s.repo.Delete(ctx, userId, id)
 	return err
 }
 
 func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
-	// select => update
-	err := s.repo.Save(ctx, todo, func(todoDomain domain.Todo) error {
-		if todo.Id == 0 {
-			return errors.New("id is no value")
-		}
-		_, err := domain.CreatedTodo(todo.Title, todo.Content, todo.OrderNum)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	err := domain.ValidTodoField(todo)
+	if err != nil {
+		return err
+	}
+	err = s.repo.Save(ctx,
+		todo.UserId, todo.Id,
+		func(todos []domain.Todo) (domain.Todo, error) {
+			if len(todos) == 0 {
+				return domain.Todo{}, errors.New("no row error")
+			}
+			return todos[0], nil
+		},
+		func(t domain.Todo) domain.Todo {
+			t.Title = todo.Title
+			t.Content = todo.Content
+			t.IsDeleted = todo.IsDeleted
+			t.OrderNum = todo.OrderNum
+			t.LastUpdatedAt = time.Now()
+			return t
+		},
+		updateValidFunc,
+	)
 
 	return err
 }
 
-// todo transaction 익힌후 테스트
+func updateValidFunc(t domain.Todo) error {
+	if t.Id == 0 {
+		return errors.New("todoId is zero")
+	}
+	if t.UserId == 0 {
+		return errors.New("userId is zero")
+	}
+	return nil
+}
 
-func (s TodoService) GetTodos(ctx context.Context, page page.ReqPage) ([]domain.Todo, int, error) {
-	todos, totalCount, err := s.repo.GetList(ctx, page)
+func (s TodoService) GetTodos(ctx context.Context, userId int, page page.ReqPage) ([]domain.Todo, int, error) {
+	if userId == 0 {
+		return []domain.Todo{}, 0, errors.New("userId is zero")
+	}
+	todos, totalCount, err := s.repo.GetList(ctx, userId, page)
 	return todos, totalCount, err
 }
 
-func (s TodoService) GetDetail(ctx context.Context, id int) (domain.Todo, error) {
+func (s TodoService) GetDetail(ctx context.Context, userId, id int) (domain.Todo, error) {
 	if id == 0 {
-		return domain.Todo{}, errors.New("id is no value")
+		return domain.Todo{}, errors.New("id is zero")
 	}
-	detail, err := s.repo.GetDetail(ctx, id)
+	detail, err := s.repo.GetDetail(ctx, userId, id)
 	if err != nil {
 		return domain.Todo{}, err
 	}
