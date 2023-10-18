@@ -34,6 +34,7 @@ func ToListDto(todo domain.Todo) ListDto {
 type DetailDto struct {
 	Id        int       `json:"id"`
 	Title     string    `json:"title"`
+	UserId    int       `json:"user_id"`
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
 	OrderNum  int       `json:"order_num"`
@@ -43,6 +44,7 @@ type DetailDto struct {
 func ToDetailDto(todo domain.Todo) DetailDto {
 	return DetailDto{
 		Id:        todo.Id,
+		UserId:    todo.UserId,
 		Title:     todo.Title,
 		Content:   todo.Content,
 		CreatedAt: todo.CreatedAt,

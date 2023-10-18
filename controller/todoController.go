@@ -26,6 +26,9 @@ func (c TodoController) CreateTodo(ctx context.Context, dto req.CreateTodoDto) e
 	if !ok {
 		return errors.New("user id is not valid")
 	}
+	if userId == 0 {
+		return errors.New("userId is zero")
+	}
 	err := c.service.CreateTodo(ctx, dto.ToDomain(userId))
 	if err != nil {
 		return err
