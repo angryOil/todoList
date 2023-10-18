@@ -42,3 +42,22 @@ func validateCreateTodo(title, content string, orderNum int) error {
 	}
 	return nil
 }
+
+func ValidTodoField(todo Todo) error {
+	if todo.Id == 0 {
+		return errors.New("todoId is zero")
+	}
+	if todo.UserId == 0 {
+		return errors.New("userId is zero")
+	}
+	if todo.Title == "" {
+		return errors.New("title is empty")
+	}
+	if todo.Content == "" {
+		return errors.New("content is empty")
+	}
+	if todo.OrderNum == 0 {
+		return errors.New("orderNum is empty")
+	}
+	return nil
+}

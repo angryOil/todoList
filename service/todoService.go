@@ -21,13 +21,13 @@ func NewService(repo repository.ITodoRepository) TodoService {
 	return TodoService{repo: repo}
 }
 func (s TodoService) CreateTodo(ctx context.Context, todo domain.Todo) error {
-	createdTodo, err1 := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
-	if err1 != nil {
-		return err1
+	createdTodo, err := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
+	if err != nil {
+		return err
 	}
 
-	err2 := s.repo.Create(ctx, createdTodo)
-	return err2
+	err = s.repo.Create(ctx, createdTodo)
+	return err
 }
 
 func (s TodoService) DeleteTodo(ctx context.Context, userId, id int) error {
@@ -36,14 +36,15 @@ func (s TodoService) DeleteTodo(ctx context.Context, userId, id int) error {
 }
 
 func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
-	err := s.repo.Save(ctx,
+	err := domain.ValidTodoField(todo)
+	if err != nil {
+		return err
+	}
+	err = s.repo.Save(ctx,
 		todo.UserId, todo.Id,
 		func(todos []domain.Todo) (domain.Todo, error) {
 			if len(todos) == 0 {
 				return domain.Todo{}, errors.New("no row error")
-			}
-			if todos[0].UserId != todo.UserId {
-				return domain.Todo{}, errors.New("it`s not yours error who are u?")
 			}
 			return todos[0], nil
 		},
@@ -63,19 +64,25 @@ func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
 
 func updateValidFunc(t domain.Todo) error {
 	if t.Id == 0 {
-		return errors.New("todo id zero")
+		return errors.New("todoId is zero")
+	}
+	if t.UserId == 0 {
+		return errors.New("userId is zero")
 	}
 	return nil
 }
 
 func (s TodoService) GetTodos(ctx context.Context, userId int, page page.ReqPage) ([]domain.Todo, int, error) {
+	if userId == 0 {
+		return []domain.Todo{}, 0, errors.New("userId is zero")
+	}
 	todos, totalCount, err := s.repo.GetList(ctx, userId, page)
 	return todos, totalCount, err
 }
 
 func (s TodoService) GetDetail(ctx context.Context, userId, id int) (domain.Todo, error) {
 	if id == 0 {
-		return domain.Todo{}, errors.New("id is no value")
+		return domain.Todo{}, errors.New("id is zero")
 	}
 	detail, err := s.repo.GetDetail(ctx, userId, id)
 	if err != nil {
