@@ -9,40 +9,25 @@ import (
 	"strings"
 	"todoList/controller"
 	"todoList/controller/req"
-	"todoList/deco/handler"
 	"todoList/page"
-	"todoList/repository"
-	"todoList/repository/infla"
-	"todoList/service"
 )
 
-func NewHandler() http.Handler {
+type TodoHandler struct {
+	c controller.TodoController
+}
+
+func NewHandler(c controller.TodoController) http.Handler {
+	h := TodoHandler{c: c}
 	m := mux.NewRouter()
-	m.HandleFunc("/todos", getTodos).Methods(http.MethodGet)
-	m.HandleFunc("/todos/{id:[0-9]+}", getTodoDetail).Methods(http.MethodGet)
-	m.HandleFunc("/todos/{id:[0-9]+}", deleteTodo).Methods(http.MethodDelete)
-	m.HandleFunc("/todos", createTodo).Methods(http.MethodPost)
-	m.HandleFunc("/todos", updateTodo).Methods(http.MethodPut)
-	// middleware 래핑
-	middlewareWrapped := handler.NewDecoHandler(m, handler.AuthMiddleware)
-	// logger 래핑
-	wrappedHandler := handler.NewDecoHandler(middlewareWrapped, handler.Logger)
-	return wrappedHandler
+	m.HandleFunc("/todos", h.getTodos).Methods(http.MethodGet)
+	m.HandleFunc("/todos/{id:[0-9]+}", h.getTodoDetail).Methods(http.MethodGet)
+	m.HandleFunc("/todos/{id:[0-9]+}", h.deleteTodo).Methods(http.MethodDelete)
+	m.HandleFunc("/todos", h.createTodo).Methods(http.MethodPost)
+	m.HandleFunc("/todos", h.updateTodo).Methods(http.MethodPut)
+	return m
 }
 
-func getController() controller.TodoController {
-	return controller.NewController(
-		service.NewService(
-			repository.NewRepository(
-				infla.NewDB(),
-			),
-		),
-	)
-}
-
-var c = getController()
-
-func updateTodo(w http.ResponseWriter, r *http.Request) {
+func (th TodoHandler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	t := &req.UpdateTodoDto{}
 	err := json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
@@ -50,7 +35,7 @@ func updateTodo(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	err = c.UpdateTodo(r.Context(), *t)
+	err = th.c.UpdateTodo(r.Context(), *t)
 	if err != nil {
 		if strings.Contains(err.Error(), "is empty") {
 			w.WriteHeader(http.StatusBadRequest)
@@ -65,7 +50,7 @@ func updateTodo(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("success"))
 }
 
-func createTodo(w http.ResponseWriter, r *http.Request) {
+func (th TodoHandler) createTodo(w http.ResponseWriter, r *http.Request) {
 	t := &req.CreateTodoDto{}
 	err := json.NewDecoder(r.Body).Decode(t)
 	if err != nil {
@@ -74,9 +59,9 @@ func createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.CreateTodo(r.Context(), *t)
+	err = th.c.CreateTodo(r.Context(), *t)
 	if err != nil {
-		if strings.Contains(err.Error(), "is empty") {
+		if strings.Contains(err.Error(), "is empty") || strings.Contains(err.Error(), "is not valid") {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
@@ -89,7 +74,7 @@ func createTodo(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("success"))
 }
 
-func deleteTodo(w http.ResponseWriter, r *http.Request) {
+func (th TodoHandler) deleteTodo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -98,7 +83,7 @@ func deleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.DeleteTodo(r.Context(), id)
+	err = th.c.DeleteTodo(r.Context(), id)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
@@ -107,7 +92,7 @@ func deleteTodo(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("success delete id:%d", id)))
 }
 
-func getTodoDetail(w http.ResponseWriter, r *http.Request) {
+func (th TodoHandler) getTodoDetail(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -116,7 +101,7 @@ func getTodoDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todo, err := c.GetDetail(r.Context(), id)
+	todo, err := th.c.GetDetail(r.Context(), id)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows") {
 			w.WriteHeader(http.StatusNotFound)
@@ -138,7 +123,7 @@ func getTodoDetail(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(data))
 }
 
-func getTodos(w http.ResponseWriter, r *http.Request) {
+func (th TodoHandler) getTodos(w http.ResponseWriter, r *http.Request) {
 	pageNum, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		pageNum = 0
@@ -149,7 +134,7 @@ func getTodos(w http.ResponseWriter, r *http.Request) {
 	}
 	reqPage := page.NewReqPage(pageNum, pageSize)
 
-	todoDtos, count, err := c.GetTodos(r.Context(), reqPage)
+	todoDtos, count, err := th.c.GetTodos(r.Context(), reqPage)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
