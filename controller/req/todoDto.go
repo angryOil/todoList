@@ -5,17 +5,10 @@ import (
 	"todoList/domain"
 )
 
-// id
-// title
-// content
-// createdAt
-// orderNum
-// isDeleted
-
 type CreateTodoDto struct {
-	Title    string `json:"title"`
-	Content  string `json:"content"`
-	OrderNum int    `json:"order_num"`
+	Title    string `json:"title" example:"제목"`
+	Content  string `json:"content" example:"내용"`
+	OrderNum int    `json:"order_num" example:"2"`
 }
 
 func (d CreateTodoDto) ToDomain(userId int) domain.Todo {
@@ -28,11 +21,11 @@ func (d CreateTodoDto) ToDomain(userId int) domain.Todo {
 }
 
 type UpdateTodoDto struct {
-	Id        int    `json:"id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	OrderNum  int    `json:"order_num"`
-	IsDeleted bool   `json:"is_deleted"`
+	Id        int    `json:"id" example:"0"`
+	Title     string `json:"title" example:"제목"`
+	Content   string `json:"content" example:"내용"`
+	OrderNum  int    `json:"order_num" example:"1"`
+	IsDeleted bool   `json:"is_deleted" example:"false"`
 }
 
 func (d UpdateTodoDto) ToDomain(userId int) domain.Todo {
