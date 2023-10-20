@@ -27,7 +27,7 @@ func TestTodoRepositoryTestSuite(t *testing.T) {
 	suite.Run(t, &TodoRepositoryTestSuite{})
 }
 
-// 각 테스트실행전 1번씩 실행됨 전체 테스트 실해전 실행은 SetupSuite() 메소드 사용
+// 각 테스트실행전 1번씩 실행됨 전체 테스트 실행전 실행은 SetupSuite() 메소드 사용
 func (s *TodoRepositoryTestSuite) SetupTest() {
 	log.Printf("setup testSuite ...")
 	var db = infla.NewDB()
