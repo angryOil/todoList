@@ -26,7 +26,7 @@ func main() {
 	// logger 래핑
 	wrappedHandler := handler2.NewDecoHandler(middlewareWrapped, handler2.Logger)
 	r.PathPrefix("/todos").Handler(wrappedHandler)
-	http.ListenAndServe(":8080", r)
+	http.ListenAndServe(":8082", r)
 }
 
 // 주입 방식변경

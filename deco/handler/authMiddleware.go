@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 )
@@ -19,19 +17,11 @@ type user struct {
 // server 연결되있는지 확인 먼저 필요
 
 func AuthMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
-	fmt.Println("to")
 	token := r.Header.Get("token")
 	fmt.Println("token?", token)
 	if !tokenCheck(token) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid token"))
-		return
-	}
-
-	err := verifyToAuthServer(token)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -53,21 +43,6 @@ func AuthMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
 	ctx := context.WithValue(r.Context(), "userId", u.UserID)
 
 	h.ServeHTTP(w, r.WithContext(ctx))
-}
-
-func verifyToAuthServer(token string) error {
-	authUrl := "http://localhost:8081/users/verify"
-	re, _ := http.NewRequest("POST", authUrl, strings.NewReader(token))
-	resp, err := http.DefaultClient.Do(re)
-	if err != nil {
-		return errors.New("auth server error :" + err.Error())
-	}
-	if resp.StatusCode != http.StatusOK {
-		readBody, _ := io.ReadAll(resp.Body)
-		return errors.New(string(readBody))
-	}
-	defer resp.Body.Close()
-	return nil
 }
 
 func tokenCheck(token string) bool {
