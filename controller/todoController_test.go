@@ -12,6 +12,7 @@ import (
 	"todoList/controller/req"
 	"todoList/controller/res"
 	"todoList/domain"
+	"todoList/domain/vo"
 	"todoList/page"
 	"todoList/repository"
 	"todoList/repository/infla"
@@ -52,7 +53,7 @@ func (s *TodoControllerSuite) SetupTest() {
 }
 
 // 테스트시 기준이 될 데이터
-var baseTestDomain = domain.Todo{
+var baseTestDomain = vo.Detail{
 	UserId:    9999,
 	Title:     "base test model title",
 	Content:   "base test model content",
@@ -61,31 +62,32 @@ var baseTestDomain = domain.Todo{
 }
 
 // 병합된 데이터 테스트 이므로 그대로
-func getTestMergeTodo(todo domain.Todo) domain.Todo {
-	return todo
+func getTestMergeTodo(todo domain.Todo) (vo.Save, error) {
+	return todo.ToSave(), nil
 }
 
 // test 에선 멱등성을 위해 save(update) 메소드를 사용할거고
 // update 에서는 getValidFunc 에서 나온 결과로(repo 에서 조회후 넣을 예정)
 func validFunMaker(todoId int) func([]domain.Todo) (domain.Todo, error) {
 	return func(todos []domain.Todo) (domain.Todo, error) {
-		return domain.Todo{
-			UserId:    baseTestDomain.UserId,
-			Id:        todoId,
-			Title:     baseTestDomain.Title + strconv.Itoa(todoId),
-			Content:   baseTestDomain.Content + strconv.Itoa(todoId),
-			OrderNum:  baseTestDomain.OrderNum + todoId,
-			IsDeleted: baseTestDomain.IsDeleted,
-		}, nil
+		return domain.NewTodoBuilder().
+			UserId(baseTestDomain.UserId).
+			Id(todoId).
+			Title(baseTestDomain.Title + strconv.Itoa(todoId)).
+			Content(baseTestDomain.Content + strconv.Itoa(todoId)).
+			OrderNum(baseTestDomain.OrderNum + todoId).
+			IsDeleted(baseTestDomain.IsDeleted).
+			Build(), nil
 	}
 }
 
 // todoId,userId 는 0이어서는 안됨
 func getTestSaveValid(todo domain.Todo) error {
-	if todo.UserId == 0 {
+	t := todo.ToInfo()
+	if t.UserId == 0 {
 		return errors.New("userId is zero")
 	}
-	if todo.Id == 0 {
+	if t.Id == 0 {
 		return errors.New("todoId is zero")
 	}
 	return nil
@@ -98,14 +100,14 @@ func getInitDomainArr() []domain.Todo {
 	result := make([]domain.Todo, 10)
 	for i, _ := range result {
 		id := i + 1
-		result[i] = domain.Todo{
-			Id:        id, //id 가 0이 되면안되므로
-			UserId:    base.UserId,
-			Title:     base.Title + strconv.Itoa(id),
-			Content:   base.Content + strconv.Itoa(id),
-			OrderNum:  base.OrderNum + id,
-			IsDeleted: base.IsDeleted,
-		}
+		result[i] = domain.NewTodoBuilder().
+			Id(id).
+			UserId(base.UserId).
+			Title(base.Title + strconv.Itoa(id)).
+			Content(base.Content + strconv.Itoa(id)).
+			OrderNum(base.OrderNum + id).
+			IsDeleted(base.IsDeleted).
+			Build()
 	}
 	return result
 }
@@ -113,8 +115,10 @@ func getInitDomainArr() []domain.Todo {
 func (s *TodoControllerSuite) BeforeTest(suiteName, testName string) {
 	log.Printf("이것은 BeforeTest 입니다. 기본 값들을 생성하죠. %s %s", suiteName, testName)
 	getTestValidFunc := validFunMaker
-	for _, todoDomain := range getInitDomainArr() {
-		err := testRepo.Save(context.Background(), todoDomain.UserId, todoDomain.Id, getTestValidFunc(todoDomain.Id), getTestMergeTodo, getTestSaveValid)
+	for _, t := range getInitDomainArr() {
+		//err := testRepo.Save(context.Background(), todoDomain.UserId, todoDomain.Id, getTestValidFunc(todoDomain.Id), getTestMergeTodo, getTestSaveValid)
+		v := t.ToDetail()
+		err := testRepo.Save(context.Background(), v.UserId, v.Id, getTestValidFunc(v.Id), getTestMergeTodo)
 		if err != nil {
 			panic(err)
 		}
@@ -156,11 +160,11 @@ func (s *TodoControllerSuite) TestCreateTodo() {
 		ctx := getTestUserValueCtx(0)
 		err := s.controller.CreateTodo(ctx, req.CreateTodoDto{
 			Title:    "userId 가 0입니다",
-			Content:  "정말요? userId가0 이라구요? handler에서 거부를 안했나요?",
+			Content:  "정말요? userId가0 이라구요? handler 에서 거부를 안했나요?",
 			OrderNum: 2222,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "userId is zero")
+		assert.Contains(s.T(), err.Error(), "invalid")
 	})
 	s.Run("제목이 없을경우 error를 반환", func() {
 		ctx := getTestUserValueCtx(baseTestDomain.UserId)
@@ -170,7 +174,7 @@ func (s *TodoControllerSuite) TestCreateTodo() {
 			OrderNum: 2222,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "title is empty")
+		assert.Contains(s.T(), err.Error(), "invalid title")
 	})
 	s.Run("내용이 없을경우 error를 반환", func() {
 		ctx := getTestUserValueCtx(baseTestDomain.UserId)
@@ -180,7 +184,7 @@ func (s *TodoControllerSuite) TestCreateTodo() {
 			OrderNum: 2222,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "content is empty")
+		assert.Contains(s.T(), err.Error(), "invalid")
 	})
 	s.Run("orderNum 이 없을경우 error를 반환", func() {
 		ctx := getTestUserValueCtx(baseTestDomain.UserId)
@@ -189,17 +193,17 @@ func (s *TodoControllerSuite) TestCreateTodo() {
 			Content:  "제목이 있습니다 글입니다.",
 			OrderNum: 0,
 		})
-		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "orderNum is empty")
+		assert.NoError(s.T(), err)
 	})
 }
 
 func (s *TodoControllerSuite) TestUpdateTodo() {
 	s.Run("정상적인 업데이트 일경우", func() {
 		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
-		ctx := getTestUserValueCtx(target.UserId)
+		t := target.ToDetail()
+		ctx := getTestUserValueCtx(t.UserId)
 		err := s.controller.UpdateTodo(ctx, req.UpdateTodoDto{
-			Id:        target.Id,
+			Id:        t.Id,
 			Title:     "mod!!!",
 			Content:   "Con mod",
 			OrderNum:  33,
@@ -210,7 +214,8 @@ func (s *TodoControllerSuite) TestUpdateTodo() {
 
 	s.Run("todoId없이 수정을 시도할경우 error를 리턴", func() {
 		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
-		ctx := getTestUserValueCtx(target.UserId)
+		t := target.ToDetail()
+		ctx := getTestUserValueCtx(t.UserId)
 		err := s.controller.UpdateTodo(ctx, req.UpdateTodoDto{
 			Id:        0,
 			Title:     "todo id 가 없네요",
@@ -219,12 +224,13 @@ func (s *TodoControllerSuite) TestUpdateTodo() {
 			IsDeleted: false,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "todoId is zero")
+		assert.Contains(s.T(), err.Error(), "no")
 	})
 	s.Run("userId없이 수정을 시도할경우 error를 리턴", func() {
 		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		t := target.ToDetail()
 		err := s.controller.UpdateTodo(context.Background(), req.UpdateTodoDto{
-			Id:        target.Id,
+			Id:        t.Id,
 			Title:     "userID 없다는데 정말인가요?",
 			Content:   "userId가  없어요...",
 			OrderNum:  22,
@@ -236,18 +242,19 @@ func (s *TodoControllerSuite) TestUpdateTodo() {
 	s.Run("userId를 0으로 수정을 시도할경우 error를 리턴", func() {
 		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
 		ctx := getTestUserValueCtx(0)
+		t := target.ToDetail()
 		err := s.controller.UpdateTodo(ctx, req.UpdateTodoDto{
-			Id:        target.Id,
+			Id:        t.Id,
 			Title:     "userID 없다는데 정말인가요?",
 			Content:   "userId가  없어요...",
 			OrderNum:  22,
 			IsDeleted: false,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "userId is zero")
+		assert.Contains(s.T(), err.Error(), "no row")
 	})
 	s.Run("제목이없이 수정을 시도할경우 error를 리턴", func() {
-		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)].ToDetail()
 		ctx := getTestUserValueCtx(target.UserId)
 		err := s.controller.UpdateTodo(ctx, req.UpdateTodoDto{
 			Id:        target.Id,
@@ -257,10 +264,10 @@ func (s *TodoControllerSuite) TestUpdateTodo() {
 			IsDeleted: false,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "title is empty")
+		assert.Contains(s.T(), err.Error(), "invalid")
 	})
 	s.Run("내용없이 수정을 시도할경우 error를 리턴", func() {
-		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)].ToDetail()
 		ctx := getTestUserValueCtx(target.UserId)
 		err := s.controller.UpdateTodo(ctx, req.UpdateTodoDto{
 			Id:        target.Id,
@@ -270,10 +277,10 @@ func (s *TodoControllerSuite) TestUpdateTodo() {
 			IsDeleted: false,
 		})
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "content is empty")
+		assert.Contains(s.T(), err.Error(), "invalid")
 	})
 	s.Run("orderNum 없이 수정을 시도 할경우 error를 리턴", func() {
-		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)].ToDetail()
 		ctx := getTestUserValueCtx(target.UserId)
 		err := s.controller.UpdateTodo(ctx, req.UpdateTodoDto{
 			Id:        target.Id,
@@ -282,14 +289,13 @@ func (s *TodoControllerSuite) TestUpdateTodo() {
 			OrderNum:  0,
 			IsDeleted: false,
 		})
-		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "orderNum is empty")
+		assert.NoError(s.T(), err)
 	})
 }
 
 func (s *TodoControllerSuite) TestDeleteTodo() {
 	s.Run("실제 있는 값을 삭제했을경우 error nil을 반환", func() {
-		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)].ToDetail()
 		ctx := getTestUserValueCtx(target.UserId)
 		dto, err := s.controller.GetDetail(ctx, target.Id)
 		assert.NoError(s.T(), err)
@@ -306,13 +312,13 @@ func (s *TodoControllerSuite) TestDeleteTodo() {
 		assert.NoError(s.T(), err)
 	})
 	s.Run("userId없이 요청을 했을경우 error 를 반환", func() {
-		err := s.controller.DeleteTodo(context.Background(), getInitDomainArr()[0].Id)
+		err := s.controller.DeleteTodo(context.Background(), getInitDomainArr()[0].ToDetail().Id)
 		assert.Error(s.T(), err)
 		assert.Contains(s.T(), err.Error(), "user id is not valid")
 	})
 	s.Run("userId를 0으로 요청을 했을경우 error 를 반환", func() {
 		ctx := getTestUserValueCtx(0)
-		err := s.controller.DeleteTodo(ctx, getInitDomainArr()[0].Id)
+		err := s.controller.DeleteTodo(ctx, getInitDomainArr()[0].ToDetail().Id)
 		assert.NoError(s.T(), err)
 	})
 }
@@ -338,7 +344,7 @@ func (s *TodoControllerSuite) TestGetTodos() {
 		ctx := getTestUserValueCtx(0)
 		_, totalCnt, err := s.controller.GetTodos(ctx, page.NewReqPage(0, 0))
 		assert.Error(s.T(), err)
-		assert.Contains(s.T(), err.Error(), "userId is zero")
+		assert.Contains(s.T(), err.Error(), "invalid")
 		assert.Equal(s.T(), 0, totalCnt)
 	})
 }

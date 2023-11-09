@@ -4,6 +4,10 @@ import "time"
 
 var _ TodoBuilder = (*todoBuilder)(nil)
 
+func NewTodoBuilder() TodoBuilder {
+	return &todoBuilder{}
+}
+
 type TodoBuilder interface {
 	Id(id int) TodoBuilder
 	UserId(userId int) TodoBuilder

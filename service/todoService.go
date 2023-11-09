@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 	"todoList/domain"
+	"todoList/domain/vo"
 	"todoList/page"
 	"todoList/repository"
+	req2 "todoList/repository/req"
+	"todoList/service/req"
+	"todoList/service/res"
 )
 
 // service domain => 정책/벨리데이션 => domain
@@ -20,13 +23,39 @@ type TodoService struct {
 func NewService(repo repository.ITodoRepository) TodoService {
 	return TodoService{repo: repo}
 }
-func (s TodoService) CreateTodo(ctx context.Context, todo domain.Todo) error {
-	createdTodo, err := domain.CreatedTodo(todo.UserId, todo.Title, todo.Content, todo.OrderNum)
+
+const (
+	NoRows        = "no rows"
+	InvalidUserID = "invalid user id"
+	InvalidId     = "invalid id"
+)
+
+func (s TodoService) CreateTodo(ctx context.Context, c req.CreateTodo) error {
+	userId, orderNum := c.UserId, c.OrderNum
+	title, content := c.Title, c.Content
+	createdAt := time.Now()
+	isDeleted := false
+
+	err := domain.NewTodoBuilder().
+		UserId(userId).
+		OrderNum(orderNum).
+		Title(title).
+		Content(content).
+		CreatedAt(createdAt).
+		IsDeleted(isDeleted).
+		Build().ValidCreate()
 	if err != nil {
 		return err
 	}
 
-	err = s.repo.Create(ctx, createdTodo)
+	err = s.repo.Create(ctx, req2.CreateTodo{
+		UserId:    userId,
+		Title:     title,
+		Content:   content,
+		OrderNum:  orderNum,
+		IsDeleted: isDeleted,
+		CreatedAt: createdAt,
+	})
 	return err
 }
 
@@ -35,61 +64,71 @@ func (s TodoService) DeleteTodo(ctx context.Context, userId, id int) error {
 	return err
 }
 
-func (s TodoService) UpdateTodo(ctx context.Context, todo domain.Todo) error {
-	err := domain.ValidTodoField(todo)
-	if err != nil {
-		return err
-	}
-	err = s.repo.Save(ctx,
-		todo.UserId, todo.Id,
+func (s TodoService) UpdateTodo(ctx context.Context, t req.Save) error {
+	id, userId, orderNum := t.Id, t.UserId, t.OrderNum
+	title, content := t.Title, t.Content
+	isDeleted := t.IsDeleted
+
+	err := s.repo.Save(ctx,
+		userId, id,
 		func(todos []domain.Todo) (domain.Todo, error) {
 			if len(todos) == 0 {
-				return domain.Todo{}, errors.New("no row error")
+				return domain.NewTodoBuilder().Build(), errors.New(NoRows)
 			}
 			return todos[0], nil
 		},
-		func(t domain.Todo) domain.Todo {
-			t.Title = todo.Title
-			t.Content = todo.Content
-			t.IsDeleted = todo.IsDeleted
-			t.OrderNum = todo.OrderNum
-			t.LastUpdatedAt = time.Now()
-			return t
+		func(t domain.Todo) (vo.Save, error) {
+			u := t.Update(title, content, orderNum, isDeleted)
+			err := u.ValidUpdate()
+			if err != nil {
+				return vo.Save{}, err
+			}
+			return u.ToSave(), nil
 		},
-		updateValidFunc,
 	)
 
 	return err
 }
 
-func updateValidFunc(t domain.Todo) error {
-	if t.Id == 0 {
-		return errors.New("todoId is zero")
-	}
-	if t.UserId == 0 {
-		return errors.New("userId is zero")
-	}
-	return nil
-}
-
-func (s TodoService) GetTodos(ctx context.Context, userId int, page page.ReqPage) ([]domain.Todo, int, error) {
+func (s TodoService) GetTodos(ctx context.Context, userId int, page page.ReqPage) ([]res.GetList, int, error) {
 	if userId == 0 {
-		return []domain.Todo{}, 0, errors.New("userId is zero")
+		return []res.GetList{}, 0, errors.New(InvalidUserID)
 	}
 	todos, totalCount, err := s.repo.GetList(ctx, userId, page)
-	return todos, totalCount, err
+	result := make([]res.GetList, len(todos))
+	for i, t := range todos {
+		v := t.ToInfo()
+		result[i] = res.GetList{
+			Id:        v.Id,
+			UserId:    v.UserId,
+			Title:     v.Title,
+			CreatedAt: v.CreatedAt,
+			OrderNum:  v.OrderNum,
+			IsDeleted: v.IsDeleted,
+		}
+	}
+	return result, totalCount, err
 }
 
-func (s TodoService) GetDetail(ctx context.Context, userId, id int) (domain.Todo, error) {
+func (s TodoService) GetDetail(ctx context.Context, userId, id int) (res.GetDetail, error) {
 	if id == 0 {
-		return domain.Todo{}, errors.New("id is zero")
+		return res.GetDetail{}, errors.New(InvalidId)
 	}
 	detail, err := s.repo.GetDetail(ctx, userId, id)
 	if err != nil {
-		return domain.Todo{}, err
+		return res.GetDetail{}, err
 	}
 	if len(detail) == 0 {
-		return domain.Todo{}, errors.New(fmt.Sprintf("no rows error: %d", id))
+		return res.GetDetail{}, nil
 	}
-	return detail[0], nil
+	v := detail[0].ToDetail()
+	return res.GetDetail{
+		Id:        v.Id,
+		Title:     v.Title,
+		UserId:    v.UserId,
+		Content:   v.Content,
+		CreatedAt: v.CreatedAt,
+		OrderNum:  v.OrderNum,
+		IsDeleted: v.IsDeleted,
+	}, nil
 }
