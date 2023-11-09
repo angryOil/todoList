@@ -69,6 +69,9 @@ func (r TodoRepository) Save(
 	tdModel := model.ToDetailModel(todo)
 	_, err = r2.db.NewInsert().Model(&tdModel).
 		On("CONFLICT (id) DO UPDATE").Exec(ctx)
+	if err != nil {
+		return err
+	}
 	err = tx.Commit()
 	return err
 }
