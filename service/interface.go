@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
-	"todoList/domain"
 	"todoList/page"
+	"todoList/service/req"
+	"todoList/service/res"
 )
 
 type ITodoService interface {
-	CreateTodo(ctx context.Context, todo domain.Todo) error
-	UpdateTodo(ctx context.Context, todo domain.Todo) error
+	CreateTodo(ctx context.Context, c req.CreateTodo) error
+	UpdateTodo(ctx context.Context, s req.Save) error
 	DeleteTodo(ctx context.Context, userId, id int) error
-	GetTodos(ctx context.Context, user int, page page.ReqPage) ([]domain.Todo, int, error)
-	GetDetail(ctx context.Context, userId, id int) (domain.Todo, error)
+	GetTodos(ctx context.Context, user int, page page.ReqPage) ([]res.GetList, int, error)
+	GetDetail(ctx context.Context, userId, id int) (res.GetDetail, error)
 }

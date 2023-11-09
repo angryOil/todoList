@@ -14,8 +14,6 @@ type user struct {
 	Email  string `json:"email"`
 }
 
-// server 연결되있는지 확인 먼저 필요
-
 func AuthMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
 	token := r.Header.Get("token")
 	fmt.Println("token?", token)

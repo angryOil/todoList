@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"
@@ -19,6 +18,7 @@ import (
 	"todoList/controller/res"
 	"todoList/deco/handler"
 	"todoList/domain"
+	"todoList/domain/vo"
 	"todoList/page"
 	"todoList/repository"
 	"todoList/repository/infla"
@@ -37,7 +37,7 @@ func TestTodoHandlerTestSuite(t *testing.T) {
 
 // queryString 으로 userId를 받음
 func testMiddleware(w http.ResponseWriter, r *http.Request, h http.Handler) {
-	ctx := context.WithValue(r.Context(), "userId", baseTestDomain.UserId)
+	ctx := context.WithValue(r.Context(), "userId", baseVo.UserId)
 	h.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -66,7 +66,7 @@ func (s *TodoHandlerTestSuite) SetupTest() {
 // userId 가9999 인 테스트 데이터를 10개 가지고 시작할거임
 
 // 테스트시 기준이 될 데이터
-var baseTestDomain = domain.Todo{
+var baseVo = vo.Detail{
 	UserId:    9999,
 	Title:     "base test model title",
 	Content:   "base test model content",
@@ -77,17 +77,17 @@ var baseTestDomain = domain.Todo{
 var domainArr []domain.Todo
 
 func getInitDomainArr() []domain.Todo {
-	base := baseTestDomain
+	base := baseVo
 	result := make([]domain.Todo, 10)
 	for i, _ := range result {
-		result[i] = domain.Todo{
-			Id:        i + 1, //id 가 0이 되면안되므로
-			UserId:    base.UserId,
-			Title:     base.Title + strconv.Itoa(i),
-			Content:   base.Content + strconv.Itoa(i),
-			OrderNum:  base.OrderNum + i,
-			IsDeleted: base.IsDeleted,
-		}
+		result[i] = domain.NewTodoBuilder().
+			Id(i + 1).
+			UserId(base.UserId).
+			Title(base.Title + strconv.Itoa(i)).
+			Content(base.Content + strconv.Itoa(i)).
+			OrderNum(base.OrderNum + i).
+			IsDeleted(base.IsDeleted).
+			Build()
 	}
 	return result
 }
@@ -96,39 +96,20 @@ func getInitDomainArr() []domain.Todo {
 // update 에서는 getValidFunc 에서 나온 결과로(repo 에서 조회후 넣을 예정)
 func validFunMaker(todoId int) func([]domain.Todo) (domain.Todo, error) {
 	return func(todos []domain.Todo) (domain.Todo, error) {
-		return domain.Todo{
-			UserId:    baseTestDomain.UserId,
-			Id:        todoId + 1,
-			Title:     baseTestDomain.Title + strconv.Itoa(todoId),
-			Content:   baseTestDomain.Content + strconv.Itoa(todoId),
-			OrderNum:  baseTestDomain.OrderNum + todoId,
-			IsDeleted: baseTestDomain.IsDeleted,
-		}, nil
+		return domain.NewTodoBuilder().
+			UserId(baseVo.UserId).
+			Id(todoId + 1).
+			Title(baseVo.Title + strconv.Itoa(todoId)).
+			Content(baseVo.Content + strconv.Itoa(todoId)).
+			OrderNum(baseVo.OrderNum + todoId).
+			IsDeleted(baseVo.IsDeleted).
+			Build(), nil
 	}
 }
 
 // 병합된 데이터 테스트 이므로 그대로
-func getTestMergeTodo(todo domain.Todo) domain.Todo {
-	return todo
-}
-
-// todoId,userId 는 0이어서는 안됨
-func getTestSaveValid(todo domain.Todo) error {
-	if todo.UserId == 0 {
-		return errors.New("userId is zero")
-	}
-	if todo.Id == 0 {
-		return errors.New("todoId is zero")
-	}
-	return nil
-}
-
-var (
-	Repo = "repo"
-)
-
-var RepoTestFun = func() {
-	log.Println("test")
+func getTestMergeTodo(todo domain.Todo) (vo.Save, error) {
+	return todo.ToSave(), nil
 }
 
 // 각테스트전에 실행
@@ -136,7 +117,8 @@ func (s *TodoHandlerTestSuite) BeforeTest(suiteName, testName string) {
 	log.Printf("이것은 BeforeTest 입니다. %s %s", suiteName, testName)
 	getTestValidFunc := validFunMaker
 	for _, todoDomain := range getInitDomainArr() {
-		err := testRepo.Save(context.Background(), todoDomain.UserId, todoDomain.Id, getTestValidFunc(todoDomain.Id), getTestMergeTodo, getTestSaveValid)
+		t := todoDomain.ToDetail()
+		err := testRepo.Save(context.Background(), t.UserId, t.Id, getTestValidFunc(t.Id), getTestMergeTodo)
 		if err != nil {
 			panic(err)
 		}
@@ -195,7 +177,7 @@ func (s *TodoHandlerTestSuite) TestCreateTodo() {
 		defer resp.Body.Close()
 		readBody, err := io.ReadAll(resp.Body)
 		assert.NoError(s.T(), err)
-		assert.Contains(s.T(), string(readBody), "title is empty")
+		assert.Contains(s.T(), string(readBody), "title")
 		assert.Equal(s.T(), http.StatusBadRequest, resp.StatusCode)
 	})
 
@@ -289,7 +271,7 @@ func (s *TodoHandlerTestSuite) TestUpdateTodo() {
 		defer resp.Body.Close()
 		readBody, _ := io.ReadAll(resp.Body)
 		assert.NoError(s.T(), err)
-		assert.Contains(s.T(), string(readBody), "is empty")
+		assert.Contains(s.T(), string(readBody), "invalid")
 		assert.Equal(s.T(), http.StatusBadRequest, resp.StatusCode)
 	})
 	s.Run("업데이트 id가 0일경우 error를 반환 ", func() {
@@ -305,7 +287,7 @@ func (s *TodoHandlerTestSuite) TestUpdateTodo() {
 		defer resp.Body.Close()
 		readBody, _ := io.ReadAll(resp.Body)
 		assert.NoError(s.T(), err)
-		assert.Contains(s.T(), string(readBody), "is zero")
+		assert.Contains(s.T(), string(readBody), "no row")
 		assert.Equal(s.T(), http.StatusBadRequest, resp.StatusCode)
 	})
 }
@@ -315,7 +297,7 @@ func (s *TodoHandlerTestSuite) TestDeleteTodo() {
 		ts := httptest.NewServer(s.handler)
 		defer ts.Close()
 
-		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)]
+		target := getInitDomainArr()[rand.Intn(len(getInitDomainArr())-1)].ToDetail()
 		// 존재 여부확인및 타겟이 맞는지 비교
 		re, err := http.NewRequest("GET", ts.URL+"/todos/"+strconv.Itoa(target.Id), nil)
 		assert.NoError(s.T(), err)
@@ -347,9 +329,9 @@ func (s *TodoHandlerTestSuite) TestDeleteTodo() {
 		defer resp.Body.Close()
 		var result2 res.DetailDto
 		err = json.NewDecoder(resp.Body).Decode(&result2)
-		assert.Error(s.T(), err)
+		assert.NoError(s.T(), err)
 		assert.Equal(s.T(), res.DetailDto{}, result2)
-		assert.Equal(s.T(), http.StatusNotFound, resp.StatusCode)
+		assert.Equal(s.T(), http.StatusOK, resp.StatusCode)
 	})
 	s.Run("삭제 테스트 id 형태를 다른걸로 줄경우", func() {
 		ts := httptest.NewServer(s.handler)

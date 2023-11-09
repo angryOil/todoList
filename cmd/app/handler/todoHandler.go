@@ -84,7 +84,7 @@ func (th TodoHandler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	err = th.c.CreateTodo(r.Context(), *t)
 	if err != nil {
-		if strings.Contains(err.Error(), "is empty") || strings.Contains(err.Error(), "is not valid") {
+		if strings.Contains(err.Error(), "invalid") {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
